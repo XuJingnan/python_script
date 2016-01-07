@@ -1,5 +1,6 @@
 import commands
 import datetime
+import json
 import sys
 
 SUCCESS = 0
@@ -18,16 +19,17 @@ ERROR_DROP_PARTITION = 12
 ERROR_ADD_PARTITION = 13
 ERROR_RM_LOCAL_FILE = 14
 
-SITE_ID_KEY = "site_id"
-WTG_ID_KEY = "wtg_id"
-LOCAL_DIR_KEY = "local_dir"
-FILE_NAME_KEY = "file_name"
+KEY_SITE_ID = "site_id"
+KEY_WTG_ID = "wtg_id"
+KEY_LOCAL_DIR = "local_dir"
+KEY_FILE_NAME = "file_name"
 
 S3_ROOT_PATH = "s3://envwfdata/Daily_export"
 LOCAL_ROOT_DIR = "data"
 NULL = "NULL"
 
-RESULT_FILE = "wtg_minute_raw.txt"
+TABLE_NAME = "wind_ods_fact_wtg_1m_raw"
+RESULT_FILE = ""
 
 MAX_RECORD_NUMBER = 10000
 records = []
@@ -51,18 +53,15 @@ def init(day):
             alias = "/".join([S3_ROOT_PATH, tmp[0], tmp[2], day, "minute"])
             local_dir = "/".join([LOCAL_ROOT_DIR, tmp[0], tmp[2], day, "minute"])
             file_name = "minute_%s.csv" % day
-            id_map[alias] = {SITE_ID_KEY: site_id, WTG_ID_KEY: wtg_id, LOCAL_DIR_KEY: local_dir,
-                             FILE_NAME_KEY: file_name}
-
-    with open("schema.conf") as f:
-        schema = f.readline().strip().split(",")
-
+            id_map[alias] = {KEY_SITE_ID: site_id, KEY_WTG_ID: wtg_id, KEY_LOCAL_DIR: local_dir,
+                             KEY_FILE_NAME: file_name}
+    global RESULT_FILE
+    RESULT_FILE = "%s.%s" % (TABLE_NAME, day)
     rm_cmd = "rm -rf %s" % RESULT_FILE
-    mkdir_cmd = "mkdir log"
+    mkdir_cmd = "mkdir -p log/%s" % day
     commands.getstatusoutput(rm_cmd)
     commands.getstatusoutput(mkdir_cmd)
-
-    return id_map, schema
+    return id_map
 
 
 def get_s3_file(day, id_map):
@@ -70,8 +69,8 @@ def get_s3_file(day, id_map):
     fail_list = []
     for s3_path in sorted(id_map.keys()):
         value = id_map.get(s3_path)
-        local_dir = value.get(LOCAL_DIR_KEY)
-        file_name = value.get(FILE_NAME_KEY)
+        local_dir = value.get(KEY_LOCAL_DIR)
+        file_name = value.get(KEY_FILE_NAME)
         get_cmd = "mkdir -p %s && cd %s && " \
                   "aws s3 cp %s/%s.7z . && cd -" \
                   % (local_dir, local_dir, s3_path, file_name)
@@ -81,12 +80,17 @@ def get_s3_file(day, id_map):
             fail_list.append("%s/%s.7z" % (s3_path, file_name))
         else:
             success_list.append("%s/%s.7z" % (s3_path, file_name))
-    with open("log/%s.success" % day, "w") as s_file, open("log/%s.fail" % day, "w") as f_file:
+    with open("log/%s/get_s3_file.success" % day, "w") as s_file, open("log/%s/get_s3_file.fail" % day, "w") as f_file:
         for s in success_list:
             s_file.write(s + "\n")
         for f in fail_list:
             f_file.write(f + "\n")
     return SUCCESS
+
+
+def write_error_log(error_file, message):
+    with open(error_file) as f:
+        f.write(message + "\n")
 
 
 def create_hdfs_dir(hdfs_dir):
@@ -194,44 +198,15 @@ def put_data_2_ocean(hdfs_dir, file_name, hive_db):
     return return_code
 
 
-def get_ids(id_map, site_name, wtg_name, day):
-    key = "/".join([S3_ROOT_PATH, site_name, wtg_name, day, "minute"])
-    return id_map.get(key)
-
-
 def extract_file(path, file_name):
     extract_cmd = "7za x %s/%s.7z -y -o%s" % (path, file_name, path)
     a, b = commands.getstatusoutput(extract_cmd)
     return a
 
 
-#
-# def data_clean(record, clean):
-#     for k in clean:
-#         v = clean.get(k)
-#         real_value = record.get(k)
-#         if real_value is None:
-#             exit(ERROR_CLEAN_KEY_NOT_EXIST)
-#         if real_value == NULL:
-#             continue
-#         if float(real_value) > v.get(HIGH) * 2 or float(real_value) < v.get(LOW):
-#             record[k] = NULL
-
-
-def output(record, schema):
-    global records
-
-    li = []
-    # schema mapping
-    for field in schema:
-        if record.has_key(field):
-            li.append(record[field])
-        else:
-            li.append(NULL)
-    records.append(",".join(li))
-
+def output(record):
+    records.append(json.dumps(record))
     if len(records) >= MAX_RECORD_NUMBER:
-        # merge data
         output_batch()
 
 
@@ -248,27 +223,28 @@ def finalize():
     commands.getstatusoutput(rm_result_file_cmd)
 
 
-def single_wtg_process(values, schema):
-    path = values.get(LOCAL_DIR_KEY)
-    file_name = values.get(FILE_NAME_KEY)
+# insert wtg_id, site_id for each wtg
+def single_wtg_process(values, day):
+    path = values.get(KEY_LOCAL_DIR)
+    file_name = values.get(KEY_FILE_NAME)
     print datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "start processing", "%s/%s.7z" % (path, file_name)
-    ids = {WTG_ID_KEY: values.get(WTG_ID_KEY), SITE_ID_KEY: values.get(SITE_ID_KEY)}
+    ids = {KEY_WTG_ID: values.get(KEY_WTG_ID), KEY_SITE_ID: values.get(KEY_SITE_ID)}
     return_code = extract_file(path, file_name)
     if return_code != SUCCESS:
-        print 'extract file error: %s.7z' % file_name
-        return ERROR_EXTRACT_FILE
-
+        write_error_log("log/%s/extract_file_error" % day, "%s.7z" % file_name)
+        return SUCCESS
     with open(path + "/" + file_name) as f:
         header = f.readline().strip().split(",")
         for line in f:
             fields = line.strip().split(",")
             if len(header) != len(fields):
-                exit(ERROR_WRONG_DATA_CONTENT)
+                write_error_log("log/%s/error_wrong_data_content" % day, file_name)
+                return SUCCESS
             record = dict(zip(header, fields))
             # add site_id and wtg_id
-            record[SITE_ID_KEY] = ids[SITE_ID_KEY]
-            record[WTG_ID_KEY] = ids[WTG_ID_KEY]
-            output(record, schema)
+            record[KEY_SITE_ID] = ids[KEY_SITE_ID]
+            record[KEY_WTG_ID] = ids[KEY_WTG_ID]
+            output(record)
     return SUCCESS
 
 
@@ -278,20 +254,20 @@ def upload_logs_2_ocean(argv):
         exit(return_code)
 
     day = (datetime.datetime.fromtimestamp(int(argv[0])) - datetime.timedelta(days=1)).strftime('%Y%m%d')
-    hdfs_dir = "%s/wind/wtg_minute_raw/hp_date=%s" % (argv[1], day)
+    hdfs_dir = "%s/wind/%s/hp_date=%s" % (argv[1], TABLE_NAME, day)
     hive_db = argv[2]
-    id_map, schema = init(day)
+    id_map = init(day)
 
     return_code = get_s3_file(day, id_map)
     if return_code != SUCCESS:
         exit(return_code)
 
-    for v in sorted(id_map.values(), key=lambda item: item.get(LOCAL_DIR_KEY)):
-        ls_cmd = "ls %s/%s.7z" % (v.get(LOCAL_DIR_KEY), v.get(FILE_NAME_KEY))
+    for v in sorted(id_map.values(), key=lambda item: item.get(KEY_LOCAL_DIR)):
+        ls_cmd = "ls %s/%s.7z" % (v.get(KEY_LOCAL_DIR), v.get(KEY_FILE_NAME))
         a, b = commands.getstatusoutput(ls_cmd)
         if a != SUCCESS:
             continue
-        return_code = single_wtg_process(v, schema)
+        return_code = single_wtg_process(v, day)
         if return_code != SUCCESS:
             return return_code
     finalize()

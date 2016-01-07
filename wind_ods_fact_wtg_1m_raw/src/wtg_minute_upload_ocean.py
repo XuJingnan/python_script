@@ -25,13 +25,14 @@ KEY_LOCAL_DIR = "local_dir"
 KEY_FILE_NAME = "file_name"
 
 S3_ROOT_PATH = "s3://envwfdata/Daily_export"
-LOCAL_ROOT_DIR = "data"
-NULL = "NULL"
+DATA_DIR = "result/data"
+LOG_DIR = "result/log"
+OUTPUT_DIR = "result/output"
 
 TABLE_NAME = "wind_ods_fact_wtg_1m_raw"
-RESULT_FILE = ""
+RESULT_FILE_INDEX = 0
 
-MAX_RECORD_NUMBER = 10000
+MAX_RECORD_NUMBER = 100000
 records = []
 
 
@@ -51,20 +52,20 @@ def init(day):
                 continue
             tmp = alias.split(".")
             alias = "/".join([S3_ROOT_PATH, tmp[0], tmp[2], day, "minute"])
-            local_dir = "/".join([LOCAL_ROOT_DIR, tmp[0], tmp[2], day, "minute"])
+            local_dir = "/".join([DATA_DIR, tmp[0], tmp[2], day, "minute"])
             file_name = "minute_%s.csv" % day
             id_map[alias] = {KEY_SITE_ID: site_id, KEY_WTG_ID: wtg_id, KEY_LOCAL_DIR: local_dir,
                              KEY_FILE_NAME: file_name}
-    global RESULT_FILE
-    RESULT_FILE = "%s.%s" % (TABLE_NAME, day)
-    rm_cmd = "rm -rf %s" % RESULT_FILE
-    mkdir_cmd = "mkdir -p log/%s" % day
+    global LOG_DIR
+    LOG_DIR += "/%s" % day
+    rm_cmd = "rm -rf %s %s" % (DATA_DIR, OUTPUT_DIR)
     commands.getstatusoutput(rm_cmd)
+    mkdir_cmd = "mkdir -p %s %s %s" % (LOG_DIR, DATA_DIR, OUTPUT_DIR)
     commands.getstatusoutput(mkdir_cmd)
     return id_map
 
 
-def get_s3_file(day, id_map):
+def get_s3_file(id_map):
     success_list = []
     fail_list = []
     for s3_path in sorted(id_map.keys()):
@@ -80,7 +81,7 @@ def get_s3_file(day, id_map):
             fail_list.append("%s/%s.7z" % (s3_path, file_name))
         else:
             success_list.append("%s/%s.7z" % (s3_path, file_name))
-    with open("log/%s/get_s3_file.success" % day, "w") as s_file, open("log/%s/get_s3_file.fail" % day, "w") as f_file:
+    with open("%s/get_s3_file.success" % LOG_DIR, "w") as s_file, open("%s/get_s3_file.fail" % LOG_DIR, "w") as f_file:
         for s in success_list:
             s_file.write(s + "\n")
         for f in fail_list:
@@ -94,12 +95,6 @@ def write_error_log(error_file, message):
 
 
 def create_hdfs_dir(hdfs_dir):
-    test_cmd = "hadoop fs -test -d %s" % hdfs_dir
-    print test_cmd
-    a, b = commands.getstatusoutput(test_cmd)
-    if a == 0:
-        return SUCCESS
-
     create_cmd = "hadoop fs -mkdir -p %s" % hdfs_dir
     print create_cmd
     a, b = commands.getstatusoutput(create_cmd)
@@ -110,19 +105,8 @@ def create_hdfs_dir(hdfs_dir):
         return SUCCESS
 
 
-def test_hdfs_file(hdfs_dir, file_name):
-    test_cmd = "hadoop fs -test -f %s/%s" % (hdfs_dir, file_name)
-    print test_cmd
-    a, b = commands.getstatusoutput(test_cmd)
-    if a == 0:
-        print "hdfs file exists!"
-        return ERROR_TEST_HDFS_FILE
-    else:
-        return SUCCESS
-
-
-def rm_hdfs_file(hdfs_dir, file_name):
-    rm_cmd = "hadoop fs -rmr %s/%s" % (hdfs_dir, file_name)
+def rm_hdfs_dir(hdfs_dir):
+    rm_cmd = "hadoop fs -rmr %s" % hdfs_dir
     print rm_cmd
     a, b = commands.getstatusoutput(rm_cmd)
     if a == 0:
@@ -133,7 +117,7 @@ def rm_hdfs_file(hdfs_dir, file_name):
 
 
 def put_hdfs_file(hdfs_dir, file_name):
-    put_cmd = "hadoop fs -put %s %s/%s" % (file_name, hdfs_dir, file_name)
+    put_cmd = "hadoop fs -put %s %s/%s" % (file_name, hdfs_dir, file_name.split("/")[-1])
     print put_cmd
     a, b = commands.getstatusoutput(put_cmd)
     if a != SUCCESS:
@@ -165,8 +149,8 @@ def add_partition(hdfs_dir, hive_db):
     return SUCCESS
 
 
-def rm_local_file(file_name):
-    rm_cmd = "rm -r %s" % file_name
+def rm_local_file():
+    rm_cmd = "rm -r %s %s" % (OUTPUT_DIR, DATA_DIR)
     a, b = commands.getstatusoutput(rm_cmd)
     if a != SUCCESS:
         print "rm local file error!"
@@ -175,26 +159,26 @@ def rm_local_file(file_name):
         return SUCCESS
 
 
-def put_data_2_ocean(hdfs_dir, file_name, hive_db):
+def put_data_2_ocean(hdfs_dir, hive_db):
+    return_code = rm_hdfs_dir(hdfs_dir)
+    if return_code != SUCCESS:
+        return return_code
+
     return_code = create_hdfs_dir(hdfs_dir)
     if return_code != SUCCESS:
         return return_code
 
-    return_code = test_hdfs_file(hdfs_dir, file_name)
-    if return_code != SUCCESS:
-        return_code = rm_hdfs_file(hdfs_dir, file_name)
+    files = [OUTPUT_DIR + "/part.%s" % index for index in range(RESULT_FILE_INDEX)]
+    for file_name in files:
+        return_code = put_hdfs_file(hdfs_dir, file_name)
         if return_code != SUCCESS:
             return return_code
-
-    return_code = put_hdfs_file(hdfs_dir, file_name)
-    if return_code != SUCCESS:
-        return return_code
 
     return_code = add_partition(hdfs_dir, hive_db)
     if return_code != SUCCESS:
         return return_code
 
-    return_code = rm_local_file(file_name)
+    return_code = rm_local_file()
     return return_code
 
 
@@ -211,16 +195,12 @@ def output(record):
 
 
 def output_batch():
-    with open(RESULT_FILE, "a") as f:
+    global RESULT_FILE_INDEX
+    with open("%s/part.%s" % (OUTPUT_DIR, RESULT_FILE_INDEX), "a") as f:
         for line in records:
             f.write(line + "\n")
         records[:] = []
-
-
-def finalize():
-    output_batch()
-    rm_result_file_cmd = "rm -rf data"
-    commands.getstatusoutput(rm_result_file_cmd)
+        RESULT_FILE_INDEX += 1
 
 
 # insert wtg_id, site_id for each wtg
@@ -231,14 +211,14 @@ def single_wtg_process(values, day):
     ids = {KEY_WTG_ID: values.get(KEY_WTG_ID), KEY_SITE_ID: values.get(KEY_SITE_ID)}
     return_code = extract_file(path, file_name)
     if return_code != SUCCESS:
-        write_error_log("log/%s/extract_file_error" % day, "%s.7z" % file_name)
+        write_error_log("%s/extract_file_error" % LOG_DIR, "%s.7z" % file_name)
         return SUCCESS
     with open(path + "/" + file_name) as f:
         header = f.readline().strip().split(",")
         for line in f:
             fields = line.strip().split(",")
             if len(header) != len(fields):
-                write_error_log("log/%s/error_wrong_data_content" % day, file_name)
+                write_error_log("%s/error_wrong_data_content" % LOG_DIR, file_name)
                 return SUCCESS
             record = dict(zip(header, fields))
             # add site_id and wtg_id
@@ -258,7 +238,7 @@ def upload_logs_2_ocean(argv):
     hive_db = argv[2]
     id_map = init(day)
 
-    return_code = get_s3_file(day, id_map)
+    return_code = get_s3_file(id_map)
     if return_code != SUCCESS:
         exit(return_code)
 
@@ -270,9 +250,8 @@ def upload_logs_2_ocean(argv):
         return_code = single_wtg_process(v, day)
         if return_code != SUCCESS:
             return return_code
-    finalize()
-
-    return_code = put_data_2_ocean(hdfs_dir, RESULT_FILE, hive_db)
+    output_batch()
+    return_code = put_data_2_ocean(hdfs_dir, hive_db)
     return return_code
 
 

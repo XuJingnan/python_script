@@ -42,8 +42,9 @@ def get_read_wind_speed(fake_speed):
 
 
 # ################     process    ################
-# key.lower()
-# occur_time string transform to timestamp & date fields
+# N/A -> N/A
+# data_time, date -> parse success/fail("N/A")错
+# read_wind_speed -> calc success/fail("N/A")
 if __name__ == "__main__":
     with open("wind_dw_fact_wtg_1m_input_schema.conf") as sf:
         schema = sf.readline().strip().split(",")

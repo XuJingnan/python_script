@@ -261,6 +261,7 @@ def upload_logs_2_ocean(argv):
 # two problems not resolved:
 # 1. mdm data update if new wtg added
 # 2. data collected from s3 maybe not complete
+# only add wtg_id, site_id for each wtg
 if __name__ == "__main__":
     res = upload_logs_2_ocean(sys.argv[1:])
     if res == SUCCESS:

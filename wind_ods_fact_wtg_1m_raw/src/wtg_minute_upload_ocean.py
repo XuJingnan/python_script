@@ -1,6 +1,5 @@
 import commands
 import datetime
-import json
 import sys
 
 SUCCESS = 0
@@ -113,7 +112,7 @@ def rm_hdfs_dir(hdfs_dir):
         return SUCCESS
     else:
         print "rm hdfs exist file fail!"
-        return ERROR_RM_HDFS_FILE
+        return SUCCESS
 
 
 def put_hdfs_file(hdfs_dir, file_name):
@@ -189,7 +188,10 @@ def extract_file(path, file_name):
 
 
 def output(record):
-    records.append(json.dumps(record))
+    li = []
+    for key in record:
+        li.append(":".join([key, record[key]]))
+    records.append(",".join(li))
     if len(records) >= MAX_RECORD_NUMBER:
         output_batch()
 

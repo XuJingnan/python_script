@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<job id="hdfsreader_to_mysqlwriter_job">
+    <reader>
+        <plugin>hdfsreader</plugin>
+        <!--
+    description:hdfs path, format like: hdfs://ip:port/path , file:////data/tmp/
+    mandatory:true
+    name:dir
+    -->
+        <dir>hdfs://titan/user/hive/warehouse/${HIVE_DB}.db/wind_dw_fact_wtg_10m_weather_station/hp_date=${cal_dt}</dir>
+        <!--
+    default:\t
+    description:field separator
+    mandatory:false
+    name:fieldSplit
+    -->
+        <field_split>\001</field_split>
+        <!--
+    default:UTF-8
+    range:UTF-8|GBK|GB2312
+    description:hdfs encode
+    mandatory:false
+    name:encoding
+    -->
+        <encoding>UTF-8</encoding>
+        <!--
+    default:4096
+    range:[1024-4194304]
+    description:how large the buffer
+    mandatory:false
+    name:bufferSize
+    -->
+        <buffer_size>4096</buffer_size>
+        <!--
+    default:\N
+    range:
+    description:specify nullString and replace it to null
+    mandatory:false
+    name:nullString
+    -->
+        <nullstring>\N</nullstring>
+        <!--
+    default:
+    range:
+    description:filter column
+    mandatory:false
+    name:colFilter
+    -->
+        <col_filter></col_filter>
+        <!--
+    default:1
+    range:1-30
+    description:concurrency of the job
+    mandatory:false
+    name:concurrency
+    -->
+        <concurrency>1</concurrency>
+        <!--
+    default:true
+    range:true,false
+    description:whether the first line to be read, if switch to false, the first line will be discarded
+    mandatory:false
+    name:firstLineReadSwitch
+    -->
+        <first_line_read_switch>true</first_line_read_switch>
+    </reader>
+    <writer>
+        <plugin>mysqlwriter</plugin>
+        <!--
+    range:if name is testProp, then you can set testProp.ip, testProp.port and so on in the WORMHOLE_CONNECT_FILE
+    description:id of Mysql database's connect string properties
+    mandatory:false
+    name:connectProps
+    -->
+        <connectProps>mysql_dataocean_ods</connectProps>
+        <!--
+    description:Mysql database ip address
+    mandatory:false
+    name:ip
+    -->
+        <ip></ip>
+        <!--
+    default:3306
+    description:Mysql database port
+    mandatory:false
+    name:port
+    -->
+        <port></port>
+        <!--
+    description:Mysql database name
+    mandatory:false
+    name:dbname
+    -->
+        <dbname></dbname>
+        <!--
+    description:Mysql database login username
+    mandatory:false
+    name:username
+    -->
+        <username></username>
+        <!--
+    description:Mysql database login password
+    mandatory:false
+    name:password
+    -->
+        <password></password>
+        <!--
+    default:0
+    range:0-99
+    description:priority of writer when error occurs. 0 indicates the highest priority.
+    mandatory:false
+    name:priority
+    -->
+        <priority>0</priority>
+        <!--
+    default:UTF-8
+    range:UTF-8|GBK|GB2312
+    description:
+    mandatory:false
+    name:encoding
+    -->
+        <encoding>UTF-8</encoding>
+        <!--
+    range:params1|params2|...
+    description:mysql driver params
+    mandatory:false
+    name:params
+    -->
+        <params></params>
+        <!--
+    default:false
+    range:true|false
+    description:whether write data to mysql on way of load file.
+    mandatory:true
+    name:loadFile
+    -->
+        <loadFile>false</loadFile>
+        <!--
+    default:
+    range:
+    description:table to be dumped data into
+    mandatory:true
+    name:tableName
+    -->
+        <tableName>wind_dw_fact_wtg_10m_weather_station</tableName>
+        <!--
+    range:
+    description:columns need to insert
+    mandatory:false
+    name:columns
+    -->
+        <columns>site_id,
+            wtg_id,
+            date_time,
+            p_date,
+            read_wind_speed_avg,
+            read_wind_speed_max,
+            read_wind_speed_min,
+            read_wind_speed_std,
+            wind_direction_avg,
+            wind_direction_max,
+            wind_direction_min,
+            wind_direction_std,
+            active_power_avg,
+            active_power_max,
+            active_power_min,
+            active_power_std
+        </columns>
+        <!--
+    description:execute sql before dumping data
+    mandatory:false
+    name:pre
+    -->
+        <pre>alter table wind_dw_fact_wtg_10m_weather_station truncate partition p${part_num}</pre>
+        <!--
+    description:execute sql after dumping data
+    mandatory:false
+    name:post
+    -->
+        <post></post>
+        <!--
+    default:INSERT
+    range:INSERT|REPLACE|UPDATE
+    description:which operation to perform
+    mandatory:false
+    name:OPERATION
+    -->
+        <OPERATION>INSERT</OPERATION>
+        <!--
+    default:
+    range:
+    description:the roll back sql
+    mandatory:false
+    name:rollback
+    -->
+        <rollback></rollback>
+        <!--
+    default:0
+    range:
+    description:the data volume read minus data volume wrote cannot larger than this number
+    mandatory:false
+    name:failedlinesthreshold
+    -->
+        <failedlinesthreshold>0</failedlinesthreshold>
+        <!--
+    default:
+    range:
+    description:count the number of data lines inserted into db
+    mandatory:false
+    name:countSql
+    -->
+        <countSql></countSql>
+    </writer>
+</job>

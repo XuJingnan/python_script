@@ -15,7 +15,7 @@ def init():
     tasks = {}
     with open("mysql_task_conf.csv") as f:
         for line in f:
-            task_id, task_name, task_obj, para1, cycle = line.strip().split(",")
+            task_id, task_obj, para1, cycle = line.strip().split(",")
             tasks[task_id] = {KEY_TASK_OBJ: task_obj, KEY_PARA1: para1, KEY_CYCLE: cycle}
     return tasks
 
@@ -37,12 +37,18 @@ def run(argv, tasks):
         all_times = range(start, end + step, step)
     for t in all_times:
         cmd1 = configurations[KEY_TASK_OBJ].replace('"', '')
-        cmd2 = configurations[KEY_PARA1].replace("${unix_timestamp}", str(t)).replace('"', '')
-        cmd = cmd1 + ' "' + cmd2 + '"'
+        cmd2 = configurations[KEY_PARA1].replace("${unix_timestamp}", str(t)).replace('"', "'")
+        cmd = cmd1 + ' ' + cmd2
         print cmd
         a, b = commands.getstatusoutput(cmd)
         if a != SUCCESS:
             print b
+            with open("fail.tasks", "a") as f:
+                f.write(cmd + "\n")
+        else:
+            print b
+            with open("success.tasks", "a") as f:
+                f.write(cmd + "\n")
 
 
 # python run_history.py task_id start_time end_time

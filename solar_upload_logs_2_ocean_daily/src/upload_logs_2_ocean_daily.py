@@ -35,7 +35,7 @@ def get_s3_file(day):
 
 
 def get_local_paths(day):
-    get_cmd = "ls */*/*%s | grep %s:" % (day, day)
+    get_cmd = "ls -R | grep yyyymmdd=%s:" % day
     a, b = commands.getstatusoutput(get_cmd)
     if a != 0:
         print "get local paths error!"
@@ -177,7 +177,7 @@ def upload_logs_2_ocean(argv):
     res, local_paths = get_local_paths(day)
     if res != SUCCESS:
         exit(res)
-    local_paths = [p[:-1] for p in local_paths.split("\n")]
+    local_paths = [p[2:-1] for p in local_paths.split("\n")]
 
     for path in local_paths:
         res = upload_log_2_ocean(path, hive_db, hdfs_root)

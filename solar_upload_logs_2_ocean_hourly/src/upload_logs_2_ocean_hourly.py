@@ -166,7 +166,7 @@ def upload_logs_2_ocean(argv):
     if res != SUCCESS:
         exit(res)
 
-    day = (datetime.datetime.fromtimestamp(int(argv[0])) - datetime.timedelta(days=1)).strftime('%Y%m%d')
+    day = (datetime.datetime.fromtimestamp(int(argv[0])) - datetime.timedelta(hours=1)).strftime('%Y%m%d')
     hive_db = argv[1]
     hdfs_root = argv[2]
 
@@ -188,6 +188,6 @@ def upload_logs_2_ocean(argv):
     exit(res)
 
 
-# cmd example:   python upload_logs_2_ocean_daily.py 1449536400 bi_dev dev
+# cmd example:   python upload_logs_2_ocean_hourly.py 1452571200 bi_dev dev
 if __name__ == "__main__":
     upload_logs_2_ocean(sys.argv[1:])

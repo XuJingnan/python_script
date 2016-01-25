@@ -1,7 +1,8 @@
-import datetime
 import os.path
 import subprocess
 import sys
+
+import datetime
 
 SUCCESS = 0
 ERROR_CHECK_PARAMETERS = 1
@@ -116,6 +117,7 @@ def upload_logs_2_s3(argv):
 
     res, logs = get_logs(day, hour)
     if res == SUCCESS_DONE:
+        print("has done %s.%s before" % (day, hour))
         exit(SUCCESS)
     elif res == ERROR_GET_LOGS:
         exit(res)
@@ -125,8 +127,14 @@ def upload_logs_2_s3(argv):
         res = upload_log_2_s3(log)
         if res != SUCCESS:
             exit(res)
+    return SUCCESS
 
 
 # cmd example:   python upload_logs_2_s3_hourly.py 1449536400
 if __name__ == "__main__":
-    upload_logs_2_s3(sys.argv[1:])
+    res = upload_logs_2_s3(sys.argv[1:])
+    if res == SUCCESS:
+        print("upload logs 2 s3 successfully")
+    else:
+        print("upload logs 2 s3 fail")
+    exit(res)

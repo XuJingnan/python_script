@@ -3,9 +3,9 @@ source ~/.bash_profile
 export LANG="zh_CN.utf8"
 
 #DOMAIN="envision"
-USER_NAME="liwei.lv"
-PASS_WORD="liwei.lv"
-IPS="10.22.13.143 10.22.13.148"
+USER_NAME="oceanlog"
+PASS_WORD="oceanlog_123"
+IPS="10.22.13.26 10.22.13.151"
 #IPS="10.22.13.143"
 
 for IP in ${IPS} 
@@ -24,8 +24,8 @@ do
 #	echo $cmd
 	eval $cmd
     CODE=$?
-    
-    if [ $CODE -ne 0 ] ;then
+    echo $CODE    
+    if [ $CODE -ne 1 ] ;then
         exit $CODE
     fi 
 

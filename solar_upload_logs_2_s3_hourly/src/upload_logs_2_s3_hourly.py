@@ -1,8 +1,7 @@
+import datetime
 import os.path
 import subprocess
 import sys
-
-import datetime
 
 SUCCESS = 0
 ERROR_CHECK_PARAMETERS = 1

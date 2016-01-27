@@ -166,7 +166,7 @@ def upload_logs_2_ocean(argv):
     if res != SUCCESS:
         exit(res)
 
-    day = (datetime.datetime.fromtimestamp(int(argv[0])) - datetime.timedelta(hours=1)).strftime('%Y%m%d')
+    day = (datetime.datetime.fromtimestamp(int(argv[0])) - datetime.timedelta(hours=9)).strftime('%Y%m%d')
     hive_db = argv[1]
     hdfs_root = argv[2]
 

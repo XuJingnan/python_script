@@ -1,6 +1,8 @@
+import Queue
 import commands
 import datetime
 import sys
+import threading
 
 SUCCESS = 0
 ERROR_CHECK_PARAMETERS = 1
@@ -16,14 +18,17 @@ ERROR_RM_LOCAL_FILE = 10
 
 
 def parameters_check(argv):
-    if len(argv) != 3:
+    if len(argv) != 2:
         print "parameters format check:\terror!"
         return ERROR_CHECK_PARAMETERS
     return SUCCESS
 
 
-def get_s3_file(day):
-    get_cmd = "aws s3 cp s3://ocean/Log/solar . --recursive --exclude '*' --include '*yyyymmdd=%s*'" % (day)
+def get_s3_file(day, hour):
+    mkdir_cmd = "mkdir -p input/{day}.{hour}".format(day=day, hour=hour)
+    commands.getstatusoutput(mkdir_cmd)
+    get_cmd = "aws s3 cp s3://ocean/Log/solar input/{day}.{hour}/ " \
+              "--recursive --exclude '*' --include '*yyyymmdd={day}*'".format(day=day, hour=hour)
     print get_cmd
     a, b = commands.getstatusoutput(get_cmd)
     if a != 0:
@@ -34,8 +39,9 @@ def get_s3_file(day):
         return SUCCESS
 
 
-def get_local_paths(day):
-    get_cmd = "ls -R | grep yyyymmdd=%s:" % day
+def get_local_paths(day, hour):
+    get_cmd = "ls -R input/{day}.{hour} | grep yyyymmdd={day}:".format(day=day, hour=hour)
+    print get_cmd
     a, b = commands.getstatusoutput(get_cmd)
     if a != 0:
         print "get local paths error!"
@@ -46,22 +52,14 @@ def get_local_paths(day):
 
 
 def create_hdfs_dir(hdfs_dest_site_dir):
-    test_cmd = "hadoop fs -test -d /%s" % hdfs_dest_site_dir
-    print test_cmd
-    a, b = commands.getstatusoutput(test_cmd)
-    if a == 0:
-        return SUCCESS
-
     create_cmd = "hadoop fs -mkdir -p /%s" % hdfs_dest_site_dir
     print create_cmd
     a, b = commands.getstatusoutput(create_cmd)
     if a != 0:
-        print "create hdfs dir error!"
         print "log:\n%s" % b
-        return ERROR_CREATE_HDFS_DIR
+        return ERROR_CREATE_HDFS_DIR, "create hdfs dir error!"
     else:
-        print "create hdfs dir success!"
-        return SUCCESS
+        return SUCCESS, None
 
 
 def test_hdfs_file(hdfs_dest_site_dir, day_dir):
@@ -77,28 +75,18 @@ def test_hdfs_file(hdfs_dest_site_dir, day_dir):
 
 def rm_hdfs_file(hdfs_dest_site_dir, day_dir):
     rm_cmd = "hadoop fs -rmr /%s/%s" % (hdfs_dest_site_dir, day_dir)
-    print rm_cmd
-    a, b = commands.getstatusoutput(rm_cmd)
-    if a == 0:
-        print "rm hdfs exist file success!"
-        return SUCCESS
-    else:
-        print "rm hdfs exist file fail!"
-        print "log:\n%s" % b
-        return ERROR_RM_HDFS_FILE
+    commands.getstatusoutput(rm_cmd)
 
 
 def put_hdfs_file(path, hdfs_dest_site_dir, day_dir):
     put_cmd = "hadoop fs -put %s /%s/%s" % (path, hdfs_dest_site_dir, day_dir)
     print put_cmd
     a, b = commands.getstatusoutput(put_cmd)
-    if a != 0:
-        print "put file to hdfs error!"
+    if a != SUCCESS:
         print "log:\n%s" % b
-        return ERROR_PUT_HDFS_FILE
+        return ERROR_PUT_HDFS_FILE, "put file to hdfs error!"
     else:
-        print "put file to hdfs success!"
-        return SUCCESS
+        return SUCCESS, "put file to hdfs success!"
 
 
 def add_partition(hdfs_dest_site_dir, day_dir, hive_db):
@@ -115,7 +103,7 @@ def add_partition(hdfs_dest_site_dir, day_dir, hive_db):
     if a != 0:
         print "drop partition cmd error!"
         return ERROR_DROP_PARTITION
-    add_partition_cmd = 'hive -e "use %s; alter table %s add partition (site = \'%s\', yyyymmdd = \'%s\')"' % (
+    add_partition_cmd = 'hive -e "use %s; alter table %s add if not exists partition (site = \'%s\', yyyymmdd = \'%s\')"' % (
         hive_db, table_name, site_id, day)
     print add_partition_cmd
     a, b = commands.getstatusoutput(add_partition_cmd)
@@ -125,40 +113,45 @@ def add_partition(hdfs_dest_site_dir, day_dir, hive_db):
     return SUCCESS
 
 
-def rm_local_file():
-    rm_cmd = "rm -r log*"
-    print rm_cmd
+def rm_local_file(path):
+    rm_cmd = "rm -r %s" % path
     a, b = commands.getstatusoutput(rm_cmd)
     if a != 0:
-        print "rm local file error!"
         print "log:\n%s" % b
-        return ERROR_RM_LOCAL_FILE
+        return ERROR_RM_LOCAL_FILE, "rm local file error!"
     else:
-        print "rm local file success!"
-        return SUCCESS
+        return SUCCESS, "rm local file success!"
 
 
-def upload_log_2_ocean(path, hive_db, hdfs_root):
-    log_type, site_id, day = path.split("/")
+def upload_log_2_ocean(path, hdfs_root):
+    input_dir, day_hour, log_type, site_id, day = path.split("/")
     hdfs_dest_site_dir = "/".join([hdfs_root, "bi/logs/solar", log_type, site_id])
     day_dir = day
-
-    res = create_hdfs_dir(hdfs_dest_site_dir)
+    rm_hdfs_file(hdfs_dest_site_dir, day_dir)
+    res, msg = create_hdfs_dir(hdfs_dest_site_dir)
     if res != SUCCESS:
-        return res
-
-    res = test_hdfs_file(hdfs_dest_site_dir, day_dir)
+        q.put((path, res, msg))
+        return
+    res, msg = put_hdfs_file(path, hdfs_dest_site_dir, day_dir)
     if res != SUCCESS:
-        res = rm_hdfs_file(hdfs_dest_site_dir, day_dir)
-        if res != SUCCESS:
-            return res
+        q.put((path, res, msg))
+    res, msg = rm_local_file(path)
+    q.put((path, res, msg))
 
-    res = put_hdfs_file(path, hdfs_dest_site_dir, day_dir)
-    if res != SUCCESS:
-        return res
 
-    res = add_partition(hdfs_dest_site_dir, day_dir, hive_db)
-    return res
+q = Queue.Queue()
+
+
+def batch_process(threads):
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+
+def clean(day, hour):
+    rm_cmd = "rm -rf input/{day}.{hour}".format(day=day, hour=hour)
+    commands.getstatusoutput(rm_cmd)
 
 
 def upload_logs_2_ocean(argv):
@@ -166,28 +159,44 @@ def upload_logs_2_ocean(argv):
     if res != SUCCESS:
         exit(res)
 
-    day = (datetime.datetime.fromtimestamp(int(argv[0])) - datetime.timedelta(hours=9)).strftime('%Y%m%d')
-    hive_db = argv[1]
-    hdfs_root = argv[2]
+    day, hour = (datetime.datetime.fromtimestamp(int(argv[0])) - datetime.timedelta(hours=9)).strftime(
+        '%Y%m%d %H').split(" ")
+    hdfs_root = argv[1]
 
-    res = get_s3_file(day)
+    res = get_s3_file(day, hour)
     if res != SUCCESS:
         exit(res)
 
-    res, local_paths = get_local_paths(day)
+    res, local_paths = get_local_paths(day, hour)
     if res != SUCCESS:
         exit(res)
-    local_paths = [p[2:-1] for p in local_paths.split("\n")]
+    local_paths = [p[:-1] for p in local_paths.split("\n")]
 
+    threads = []
+    cnt = 0
     for path in local_paths:
-        res = upload_log_2_ocean(path, hive_db, hdfs_root)
-        if res != SUCCESS:
-            return res
+        t = threading.Thread(target=upload_log_2_ocean, name='thread-' + path, args=(path, hdfs_root,))
+        threads.append(t)
+        cnt += 1
+        if cnt % 20 == 0:
+            batch_process(threads)
+            threads = []
+    batch_process(threads)
 
-    res = rm_local_file()
-    exit(res)
+    clean(day, hour)
+    result = list()
+    while not q.empty():
+        result.append(q.get())
+    return_code = 0
+    for item in result:
+        if item[1] != 0:
+            return_code += item[1]
+            print "{path} occurs {error} error".format(path=item[0], error=item[2])
+    if return_code == 0:
+        print "{day}.{hour} task success!".format(day=day, hour=hour)
+    exit(return_code)
 
 
-# cmd example:   python upload_logs_2_ocean_hourly.py 1452571200 bi_dev dev
+# cmd example:   python upload_logs_2_ocean_hourly.py 1452571200 prod
 if __name__ == "__main__":
     upload_logs_2_ocean(sys.argv[1:])

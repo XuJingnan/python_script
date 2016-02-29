@@ -1,3 +1,4 @@
+id,protocal_desc,version,name,type,size,desc,alias
 10207,GW77-1500,1,风机状态,float,4,WTUR_TurSt_actsp,
 10207,GW77-1500,1,风速m/s),float,4,WNAC_WSpd_InstMag_f,
 10207,GW77-1500,1,风向角(deg),float,4,WNAC_Dir_InstMag_f,

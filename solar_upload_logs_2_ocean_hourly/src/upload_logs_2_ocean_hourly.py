@@ -27,8 +27,15 @@ def parameters_check(argv):
 def get_s3_file(day, hour):
     mkdir_cmd = "mkdir -p input/{day}.{hour}".format(day=day, hour=hour)
     commands.getstatusoutput(mkdir_cmd)
+    yesterday = (datetime.datetime.strptime(day, "%Y%m%d") + datetime.timedelta(days=-1)).strftime('%Y%m%d')
+    the_day_before_yesterday = (datetime.datetime.strptime(day, "%Y%m%d") + datetime.timedelta(days=-2)).strftime(
+        '%Y%m%d')
     get_cmd = "aws s3 cp s3://ocean/Log/solar input/{day}.{hour}/ " \
-              "--recursive --exclude '*' --include '*yyyymmdd={day}*'".format(day=day, hour=hour)
+              "--recursive --exclude '*' " \
+              "--include '*yyyymmdd={day}*' " \
+              "--include '*yyyymmdd={yesterday}*' " \
+              "--include '*yyyymmdd={the_day_before_yesterday}*' ".format(day=day, hour=hour, yesterday=yesterday,
+                                                                          the_day_before_yesterday=the_day_before_yesterday)
     print get_cmd
     a, b = commands.getstatusoutput(get_cmd)
     if a != 0:
@@ -40,7 +47,12 @@ def get_s3_file(day, hour):
 
 
 def get_local_paths(day, hour):
-    get_cmd = "ls -R input/{day}.{hour} | grep yyyymmdd={day}:".format(day=day, hour=hour)
+    yesterday = (datetime.datetime.strptime(day, "%Y%m%d") + datetime.timedelta(days=-1)).strftime('%Y%m%d')
+    the_day_before_yesterday = (datetime.datetime.strptime(day, "%Y%m%d") + datetime.timedelta(days=-2)).strftime(
+        '%Y%m%d')
+    get_cmd = "ls -R input/{day}.{hour} | " \
+              "grep 'yyyymmdd={day}:\|yyyymmdd={yesterday}:\|yyyymmdd={the_day_before_yesterday}:' " \
+        .format(day=day, hour=hour, yesterday=yesterday, the_day_before_yesterday=the_day_before_yesterday)
     print get_cmd
     a, b = commands.getstatusoutput(get_cmd)
     if a != 0:
@@ -87,30 +99,6 @@ def put_hdfs_file(path, hdfs_dest_site_dir, day_dir):
         return ERROR_PUT_HDFS_FILE, "put file to hdfs error!"
     else:
         return SUCCESS, "put file to hdfs success!"
-
-
-def add_partition(hdfs_dest_site_dir, day_dir, hive_db):
-    tmp = hdfs_dest_site_dir.split("/")
-    table_name = tmp[-2]
-    site_info = tmp[-1]
-    day_info = day_dir
-    site_id = site_info.split("=")[1]
-    day = day_info.split("=")[1]
-    drop_partition_cmd = 'hive -e "use %s; alter table %s drop if exists partition (site=\'%s\', yyyymmdd=\'%s\')"' % (
-        hive_db, table_name, site_id, day)
-    print drop_partition_cmd
-    a, b = commands.getstatusoutput(drop_partition_cmd)
-    if a != 0:
-        print "drop partition cmd error!"
-        return ERROR_DROP_PARTITION
-    add_partition_cmd = 'hive -e "use %s; alter table %s add if not exists partition (site = \'%s\', yyyymmdd = \'%s\')"' % (
-        hive_db, table_name, site_id, day)
-    print add_partition_cmd
-    a, b = commands.getstatusoutput(add_partition_cmd)
-    if a != 0:
-        print "add partition cmd error!"
-        return ERROR_ADD_PARTITION
-    return SUCCESS
 
 
 def rm_local_file(path):

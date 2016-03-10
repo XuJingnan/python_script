@@ -13,6 +13,8 @@ ERROR_RM_S3_FILE = 4
 ERROR_UPLOAD_FILE = 5
 ERROR_RM_SERVER_FILE = 6
 
+s3_path_prefix = 's3://ocean/Log/solar'
+
 
 def exe_cmd(cmd):
     try:
@@ -95,7 +97,7 @@ def rm_server_file(file_name, day, hour):
 
 def upload_log_2_s3(file_name):
     log_type, site_id, day, hour = file_name.split(".")
-    dest_path = "s3://ocean/Log/solar/%s/site=%s/yyyymmdd=%s/%s" % (log_type, site_id, day, file_name)
+    dest_path = "%s/%s/site=%s/yyyymmdd=%s/%s" % (s3_path_prefix, log_type, site_id, day, file_name)
     rm_s3_file(dest_path)
 
     res, msg = upload_file(file_name, dest_path)

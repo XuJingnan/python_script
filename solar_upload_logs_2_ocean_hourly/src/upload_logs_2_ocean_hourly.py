@@ -16,6 +16,8 @@ ERROR_DROP_PARTITION = 8
 ERROR_ADD_PARTITION = 9
 ERROR_RM_LOCAL_FILE = 10
 
+s3_path = 's3://ocean/Log/solar'
+
 
 def parameters_check(argv):
     if len(argv) != 2:
@@ -30,12 +32,13 @@ def get_s3_file(day, hour):
     yesterday = (datetime.datetime.strptime(day, "%Y%m%d") + datetime.timedelta(days=-1)).strftime('%Y%m%d')
     the_day_before_yesterday = (datetime.datetime.strptime(day, "%Y%m%d") + datetime.timedelta(days=-2)).strftime(
         '%Y%m%d')
-    get_cmd = "aws s3 cp s3://ocean/Log/solar input/{day}.{hour}/ " \
+    get_cmd = "aws s3 cp {s3_path} input/{day}.{hour}/ " \
               "--recursive --exclude '*' " \
               "--include '*yyyymmdd={day}*' " \
               "--include '*yyyymmdd={yesterday}*' " \
               "--include '*yyyymmdd={the_day_before_yesterday}*' ".format(day=day, hour=hour, yesterday=yesterday,
-                                                                          the_day_before_yesterday=the_day_before_yesterday)
+                                                                          the_day_before_yesterday=the_day_before_yesterday,
+                                                                          s3_path=s3_path)
     print get_cmd
     a, b = commands.getstatusoutput(get_cmd)
     if a != 0:

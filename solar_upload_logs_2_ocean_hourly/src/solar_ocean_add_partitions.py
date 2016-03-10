@@ -9,7 +9,11 @@ ERROR_EXE_ADD_PARTITION = 2
 
 def get_hdfs_path(hdfs_root, day):
     solar_path = "/%s/%s" % (hdfs_root, "bi/logs/solar")
-    grep_cmd = "hadoop fs -ls -R {path} | grep '{day}$'".format(path=solar_path, day=day)
+    yesterday = (datetime.datetime.strptime(day, "%Y%m%d") + datetime.timedelta(days=-1)).strftime('%Y%m%d')
+    the_day_before_yesterday = (datetime.datetime.strptime(day, "%Y%m%d") + datetime.timedelta(days=-2)).strftime(
+        '%Y%m%d')
+    grep_cmd = "hadoop fs -ls -R {path} | grep '{day}$\|{yesterday}$\|{the_day_before_yesterday}$'" \
+        .format(path=solar_path, day=day, yesterday=yesterday, the_day_before_yesterday=the_day_before_yesterday)
     print grep_cmd
     a, b = commands.getstatusoutput(grep_cmd)
     if a != SUCCESS:

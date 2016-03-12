@@ -1,9 +1,8 @@
+import Queue
+import commands
 import datetime
-import subprocess
 import sys
 import threading
-
-import queue
 
 SUCCESS = 0
 ERROR_CHECK_PARAMETERS = 1
@@ -17,18 +16,8 @@ s3_path_prefix = 's3://ocean/Log/solar'
 
 
 def exe_cmd(cmd):
-    try:
-        b = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
-        return 0, b.decode('gb2312')
-    except subprocess.CalledProcessError as e:
-        return e.returncode, e.output
-
-
-def parameters_check(argv):
-    if len(argv) != 1:
-        print("parameters format check:\terror!")
-        return ERROR_CHECK_PARAMETERS
-    return SUCCESS
+    a, b = commands.getstatusoutput(cmd)
+    return a, b
 
 
 def get_logs(day):
@@ -38,26 +27,26 @@ def get_logs(day):
     the_day_before_yesterday = (datetime.datetime.strptime(day, "%Y%m%d") + datetime.timedelta(days=-2)).strftime(
         '%Y%m%d')
 
-    ls_cmd = 'dir log_*.{day}.* | find "log_"'.format(day=day)
+    ls_cmd = 'ls -l log*{day}*'.format(day=day)
     a, b = exe_cmd(ls_cmd)
     if a == 0:
-        for log in b.split('\r\n'):
+        for log in b.split('\n'):
             logs.append(log.split(' ')[-1])
     else:
         print("none logs for {day}".format(day=day))
 
-    ls_cmd = 'dir log_*.{day}.* | find "log_"'.format(day=yesterday)
+    ls_cmd = 'ls -l log*{day}*'.format(day=yesterday)
     a, b = exe_cmd(ls_cmd)
     if a == 0:
-        for log in b.split('\r\n'):
+        for log in b.split('\n'):
             logs.append(log.split(' ')[-1])
     else:
         print("none logs for {day}".format(day=yesterday))
 
-    ls_cmd = 'dir log_*.{day}.* | find "log_"'.format(day=the_day_before_yesterday)
+    ls_cmd = 'ls -l log*{day}*'.format(day=the_day_before_yesterday)
     a, b = exe_cmd(ls_cmd)
     if a == 0:
-        for log in b.split('\r\n'):
+        for log in b.split('\n'):
             logs.append(log.split(' ')[-1])
     else:
         print("none logs for {day}".format(day=the_day_before_yesterday))
@@ -67,11 +56,6 @@ def get_logs(day):
         return SUCCESS, logs
     else:
         return ERROR_GET_LOGS, None
-
-
-def rm_s3_file(dest_path):
-    rm_cmd = "aws s3 rm %s" % dest_path
-    exe_cmd(rm_cmd)
 
 
 def upload_file(file_name, dest_path):
@@ -84,7 +68,7 @@ def upload_file(file_name, dest_path):
 
 
 def rm_server_file(file_name, day, hour):
-    a, b = exe_cmd("rm %s" % file_name)
+    a, b = exe_cmd("rm -rf %s" % file_name)
     if a != 0:
         return ERROR_RM_SERVER_FILE, "rm server file {file} error.".format(file=file_name)
     with open("%s.%s.done" % (day, hour), "a") as f:
@@ -98,7 +82,6 @@ def rm_server_file(file_name, day, hour):
 def upload_log_2_s3(file_name):
     log_type, site_id, day, hour = file_name.split(".")
     dest_path = "%s/%s/site=%s/yyyymmdd=%s/%s" % (s3_path_prefix, log_type, site_id, day, file_name)
-    rm_s3_file(dest_path)
 
     res, msg = upload_file(file_name, dest_path)
     if res != SUCCESS:
@@ -109,7 +92,7 @@ def upload_log_2_s3(file_name):
     q.put((file_name, res, msg))
 
 
-q = queue.Queue()
+q = Queue.Queue()
 
 
 def batch_process(threads):
@@ -120,24 +103,19 @@ def batch_process(threads):
 
 
 def upload_logs_2_s3(argv):
-    res = parameters_check(argv)
-    if res != SUCCESS:
-        exit(res)
-
     day, hour = (datetime.datetime.fromtimestamp(int(argv[0])) - datetime.timedelta(hours=9)).strftime(
         '%Y%m%d %H').split(' ')
 
     res, logs = get_logs(day)
     if res != SUCCESS:
         exit(SUCCESS)
-
     threads = []
     cnt = 0
     for log in logs:
         t = threading.Thread(target=upload_log_2_s3, name='thread-' + log, args=(log,))
         threads.append(t)
         cnt += 1
-        if cnt % 20 == 0:
+        if cnt % 10 == 0:
             batch_process(threads)
             threads = []
     batch_process(threads)

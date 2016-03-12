@@ -36,7 +36,7 @@ def execute(*argv):
     day, hour = (datetime.datetime.fromtimestamp(int(timestamp)) - datetime.timedelta(hours=9)).strftime(
         '%Y%m%d %H').split(' ')
     base_dir = commands.getoutput('pwd')
-    ls_ips_cmd = "ls | grep ip".format(base=base_dir)
+    ls_ips_cmd = "ls | grep ^ip".format(base=base_dir)
     ips = commands.getoutput(ls_ips_cmd)
 
     threads = []

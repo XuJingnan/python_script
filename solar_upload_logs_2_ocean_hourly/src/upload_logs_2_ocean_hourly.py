@@ -145,7 +145,7 @@ def clean(day, hour):
     commands.getstatusoutput(rm_cmd)
 
 
-def upload_logs_2_ocean(argv):
+def upload_logs_2_ocean(*argv):
     res = parameters_check(argv)
     if res != SUCCESS:
         exit(res)
@@ -190,4 +190,4 @@ def upload_logs_2_ocean(argv):
 
 # cmd example:   python upload_logs_2_ocean_hourly.py 1452571200 prod
 if __name__ == "__main__":
-    upload_logs_2_ocean(sys.argv[1:])
+    upload_logs_2_ocean(*tuple(sys.argv[1:]))

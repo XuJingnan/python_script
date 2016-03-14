@@ -46,7 +46,7 @@ def exe_add_partition(day, hour):
         exit(SUCCESS)
 
 
-def add_partition(argv):
+def add_partition(*argv):
     day, hour = (datetime.datetime.fromtimestamp(int(argv[0])) - datetime.timedelta(hours=9)).strftime(
         '%Y%m%d %H').split(" ")
     hive_db = argv[1]
@@ -59,4 +59,4 @@ def add_partition(argv):
 
 # cmd example:   solar_add_partitions.py 1452571200 bi_dev dev
 if __name__ == "__main__":
-    add_partition(sys.argv[1:])
+    add_partition(*tuple(sys.argv[1:]))

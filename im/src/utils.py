@@ -1,0 +1,75 @@
+CLEAN_FLAG_COLUMN_TEMP_OUT = 'TEMOUTAVE'
+CLEAN_FLAG_COLUMN_WIND_DIRECTION = 'WINDDIRECTIONAVE'
+CLEAN_FLAG_COLUMN_BLADE_PITCH = 'BLADEPITCHAVE'
+CLEAN_FLAG_COLUMN_WIND_SPEED = 'READWINDSPEEDAVE'
+CLEAN_FLAG_COLUMN_ROTOR_SPEED = 'ROTORSPDAVE'
+CLEAN_FLAG_COLUMN_GENERATOR_SPEED = 'GENSPDAVE'
+CLEAN_FLAG_COLUMN_TORQUE_SET_POINT = 'TORQUESETPOINTAVE'
+CLEAN_FLAG_COLUMN_TORQUE = 'TORQUEAVE'
+CLEAN_FLAG_COLUMN_ACTIVE_POWER = 'ACTIVEPWAVE'
+CLEAN_FLAG_COLUMN_POWER_CURVE_STATE = 'PCURVESTSAVE'
+CLEAN_FLAG_COLUMN_PRODUCTION = 'APPRODUCTION'
+
+CLEAN_FLAG_COLUMN_NACELLE_POSITION = 'NACELLEPOSITIONAVE'
+CLEAN_FLAG_COLUMN_WIND_SPEED_STD = 'READWINDSPEEDSTD'
+
+CLEAN_FLAG_TAG_NORMAL = 0
+CLEAN_FLAG_TAG_NULL = 1
+CLEAN_FLAG_TAG_OUT_OF_RANGE = 2
+CLEAN_FLAG_TAG_WIND_SPEED_FREEZE = 4
+CLEAN_FLAG_TAG_PRODUCTION_DECREASE = 4
+
+CLEAN_FLAG_MAPS = {
+    CLEAN_FLAG_COLUMN_TEMP_OUT: 0,
+    CLEAN_FLAG_COLUMN_WIND_DIRECTION: 1,
+    CLEAN_FLAG_COLUMN_BLADE_PITCH: 2,
+    CLEAN_FLAG_COLUMN_WIND_SPEED: 3,
+    CLEAN_FLAG_COLUMN_ROTOR_SPEED: 4,
+    CLEAN_FLAG_COLUMN_GENERATOR_SPEED: 5,
+    CLEAN_FLAG_COLUMN_TORQUE_SET_POINT: 6,
+    CLEAN_FLAG_COLUMN_TORQUE: 7,
+    CLEAN_FLAG_COLUMN_ACTIVE_POWER: 8,
+    CLEAN_FLAG_COLUMN_POWER_CURVE_STATE: 9,
+    CLEAN_FLAG_COLUMN_PRODUCTION: 10
+}
+
+CLEAN_FLAG = 'CLEAN_FLAG'
+
+CAL_NTF_WIND_SPEED = 'CAL_NTF_WIND_SPEED'
+CAL_NTF_WIND_SPEED_STANDARD = 'CAL_NTF_WIND_SPEED_STANDARD'
+CAL_NTF_WIND_SPEED_SITE = 'CAL_NTF_WIND_SPEED_SITE'
+CAL_REAL_PRODUCTION_10M = 'CAL_REAL_PRODUCTION_10M'
+CAL_IDEAL_PRODUCTION_10M = 'CAL_IDEAL_PRODUCTION_10M'
+CAL_REGULAR_PRODUCTION_10M = 'CAL_REGULAR_PRODUCTION_10M'
+
+
+def clean_flag_set(clean_flag, clean_flag_field, clean_flag_condition):
+    clean_flag += clean_flag_condition << (CLEAN_FLAG_MAPS.get(clean_flag_field) * 4)
+    return clean_flag
+
+
+def clean_flag_check_is_normal(clean_flag, clean_flag_field):
+    return clean_flag_get(clean_flag, clean_flag_field) == 0
+
+
+def clean_flag_get(clean_flag, clean_flag_field):
+    return (clean_flag & (0b1111 << (CLEAN_FLAG_MAPS.get(clean_flag_field) * 4))) >> \
+           (CLEAN_FLAG_MAPS.get(clean_flag_field) * 4)
+
+
+def clean_flag_to_string(clean_flag):
+    for key in CLEAN_FLAG_MAPS:
+        value = clean_flag_get(clean_flag, key)
+        if value != 0:
+            print key, ':',
+            if value & CLEAN_FLAG_TAG_NULL:
+                print 'null,',
+            if value & CLEAN_FLAG_TAG_OUT_OF_RANGE:
+                print 'out of range,',
+            if value & CLEAN_FLAG_TAG_WIND_SPEED_FREEZE:
+                print 'wind speed freeze,',
+            if value & CLEAN_FLAG_TAG_PRODUCTION_DECREASE:
+                print 'production decrease',
+    print ''
+
+    # clean_flag_to_string(2208185716736)

@@ -1,13 +1,13 @@
 import datetime
 import numpy as np
-import pandas as pd
 
 from utils import *
 
 
 def read_data():
     # todo read yesterday last production
-    return pd.read_csv(INPUT_DIR + TABLE_TBL_POINTVALUE_10M + '.' + str(datetime.datetime.now().strftime('%Y-%m-%d')))
+    return pd.read_csv(INPUT_DIR + TABLE_TBL_POINTVALUE_10M + '.' + str(datetime.datetime.now().strftime('%Y-%m-%d')),
+                       parse_dates=[TABLE_TBL_POINTVALUE_10M_DATATIME])
 
 
 def read_rules(rules_file):
@@ -26,7 +26,7 @@ def wind_speed_clean_more(df, key):
     df[TABLE_IM_10M_CLEAN_CLEAN_FLAG][df[key] == 0] = df[TABLE_IM_10M_CLEAN_CLEAN_FLAG].apply(
         lambda x: clean_flag_set(x, key, CLEAN_FLAG_TAG_OUT_OF_RANGE))
     df[TABLE_IM_10M_CLEAN_CLEAN_FLAG][
-        df[TABLE_TBL_POINTVALUE_10M_READWINDSPEEDSTD] / df[TABLE_TBL_POINTVALUE_10M_READWINDSPEEDAVE] < 0.01] = df[
+        df[TABLE_TBL_POINTVALUE_10M_WINDSPEEDSTD] / df[TABLE_TBL_POINTVALUE_10M_WINDSPEEDAVE] < 0.01] = df[
         TABLE_IM_10M_CLEAN_CLEAN_FLAG].apply(lambda x: clean_flag_set(x, key, CLEAN_FLAG_TAG_WIND_SPEED_FREEZE))
     return df
 
@@ -66,7 +66,7 @@ def clean_data(df):
             lambda x: clean_flag_set(x, key, CLEAN_FLAG_TAG_OUT_OF_RANGE))
 
         # more speed check
-        if key == TABLE_TBL_POINTVALUE_10M_READWINDSPEEDAVE:
+        if key == TABLE_TBL_POINTVALUE_10M_WINDSPEEDAVE:
             df = wind_speed_clean_more(df, key)
         # more production check
         if key == TABLE_TBL_POINTVALUE_10M_APPRODUCTION:
@@ -75,12 +75,12 @@ def clean_data(df):
 
 
 def write_date(df):
-    df.to_csv(OUTPUT_DIR + TABLE_IM_10M_CLEAN + '.' + str(datetime.datetime.now().strftime('%Y-%m-%d')))
+    df.to_csv(OUTPUT_DIR + TABLE_IM_10M_CLEAN + '.' + str(datetime.datetime.now().strftime('%Y-%m-%d')), index=False)
 
 
 def im_10m_clean():
     df = read_data()
-    df = df.groupby(TABLE_TBL_POINTVALUE_10M_WTG_ID).apply(lambda x: clean_data(x))
+    df = group_process(df.groupby(TABLE_TBL_POINTVALUE_10M_WTG_ID), clean_data)
     write_date(df)
 
 

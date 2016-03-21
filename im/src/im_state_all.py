@@ -12,15 +12,15 @@ def read_nc_data():
     # todo: read from csv written yesterday by this program
     nc_before_dates = pd.DatetimeIndex(['2016-03-17 23:50:00', '2016-03-17 23:50:00', '2016-03-17 23:55:00'])
     df_nc_before = pd.DataFrame(
-        {TABLE_IM_NO_CONN_ID: [False, True, True],
-         TABLE_IM_NO_CONN_WTG_ID: ['wtg_001', 'wtg_002', 'wtg_001']}, index=nc_before_dates)
+        {TABLE_IM_NO_CONN_ID: [True, True, True],
+         TABLE_IM_NO_CONN_WTG_ID: ['430000001', '430000002', '430000001']}, index=nc_before_dates)
     groups = df_nc_before.groupby(by=[TABLE_IM_NO_CONN_WTG_ID])
     df_nc_before = group_process(groups, sort_get_last_record)
 
     nc_dates = pd.DatetimeIndex(
         ['2016-03-18 08:05:00', '2016-03-18 08:40:00', '2016-03-18 09:40:00', '2016-03-18 10:30:00'])
-    df_nc = pd.DataFrame({TABLE_IM_NO_CONN_ID: [True, False, True, False],
-                          TABLE_IM_NO_CONN_WTG_ID: ['wtg_001', 'wtg_002', 'wtg_001', 'wtg_002']},
+    df_nc = pd.DataFrame({TABLE_IM_NO_CONN_ID: [False, False, True, True],
+                          TABLE_IM_NO_CONN_WTG_ID: ['430000001', '430000002', '430000001', '430000002']},
                          index=nc_dates)
     return df_nc_before, df_nc
 
@@ -29,14 +29,14 @@ def read_ss_data():
     # todo: read from csv written yesterday by this program
     ss_before_dates = pd.DatetimeIndex(['2016-03-17 23:30:00', '2016-03-17 23:30:00'])
     df_ss_before = pd.DataFrame({TABLE_IM_SS_ID: range(2),
-                                 TABLE_IM_SS_WTG_ID: ['wtg_001', 'wtg_002']}, index=ss_before_dates)
+                                 TABLE_IM_SS_WTG_ID: ['430000001', '430000002']}, index=ss_before_dates)
     groups = df_ss_before.groupby(by=[TABLE_IM_SS_WTG_ID])
     df_ss_before = group_process(groups, sort_get_last_record)
 
     ss_today_dates = pd.DatetimeIndex(
         ['2016-03-18 08:30:00', '2016-03-18 09:30:00', '2016-03-18 09:45:00', '2016-03-18 11:30:00'])
-    df_ss = pd.DataFrame({TABLE_IM_SS_ID: range(4), TABLE_IM_SS_WTG_ID: ['wtg_001', 'wtg_002', 'wtg_001', 'wtg_002']},
-                         index=ss_today_dates)
+    df_ss = pd.DataFrame({TABLE_IM_SS_ID: range(4), TABLE_IM_SS_WTG_ID: [
+        '430000001', '430000002', '430000001', '430000002']}, index=ss_today_dates)
     return df_ss_before, df_ss
 
 

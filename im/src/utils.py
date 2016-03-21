@@ -10,6 +10,7 @@ CONSTANT_STANDARD_AIR_DENSITY = 1.225
 INPUT_DIR = 'input'
 CONFIG_DIR = 'config'
 OUTPUT_DIR = 'output'
+TURBINE_STATE_ALL = 'turbine_state_all'
 
 # some input table
 TABLE_TBL_POINTVALUE_10M = 'TBL_POINTVALUE_10M'

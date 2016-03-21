@@ -1,26 +1,28 @@
 import datetime
 import numpy as np
+import os
 
 from utils import *
 
 
 def read_data():
     # todo no_conn and ss yesterday last record
-    time_suffix = '.' + str(datetime.datetime.now().strftime('%Y-%m-%d'))
-    df_10m_clean = pd.read_csv(OUTPUT_DIR + TABLE_IM_10M_CLEAN + time_suffix,
+    date = str(datetime.datetime.now().strftime('%Y-%m-%d'))
+    df_10m_clean = pd.read_csv(os.sep.join([OUTPUT_DIR, date, TABLE_IM_10M_CLEAN]),
                                parse_dates=[TABLE_TBL_POINTVALUE_10M_DATATIME])
-    df_turbine = pd.read_csv(INPUT_DIR + IM_DIM_WIND_WTG + time_suffix)
-    df_site = pd.read_csv(INPUT_DIR + IM_DIM_WIND_SITE + time_suffix)
-    df_ntf = pd.read_csv(INPUT_DIR + TABLE_MDM_NTF_DATA + time_suffix)
-    df_power_curve = pd.read_csv(INPUT_DIR + TABLE_IM_POWER_CURVE + time_suffix)
+    df_turbine = pd.read_csv(os.sep.join([INPUT_DIR, date, IM_DIM_WIND_WTG]))
+    df_site = pd.read_csv(os.sep.join([INPUT_DIR, date, IM_DIM_WIND_SITE]))
+    df_ntf = pd.read_csv(os.sep.join([INPUT_DIR, date, TABLE_MDM_NTF_DATA]))
+    df_power_curve = pd.read_csv(os.sep.join([INPUT_DIR, date, TABLE_IM_POWER_CURVE]))
     return df_10m_clean, df_turbine, df_site, df_ntf, df_power_curve
 
 
 def write_data(df):
-    df.to_csv(OUTPUT_DIR + TABLE_IM_10M_CAL_REAL + '.' + str(datetime.datetime.now().strftime('%Y-%m-%d')))
+    date = str(datetime.datetime.now().strftime('%Y-%m-%d'))
+    df.to_csv(os.sep.join([OUTPUT_DIR, date, TABLE_IM_10M_CAL_REAL]), index=False)
 
 
-def ntf_filter(df_clean_turbine_merge):
+def ntf_cal_filter(df_clean_turbine_merge):
     rotor_speed_filter = df_clean_turbine_merge[TABLE_IM_10M_CLEAN_CLEAN_FLAG].apply(
         lambda x: clean_flag_check_is_normal(x, TABLE_TBL_POINTVALUE_10M_ROTORSPDAVE))
     wind_speed_filter = df_clean_turbine_merge[TABLE_IM_10M_CLEAN_CLEAN_FLAG].apply(
@@ -50,7 +52,7 @@ def func_ntf_wind_speed_apply(df_wtg_ntf_group):
 def cal_ntf(df_10m_clean, df_turbine, df_ntf):
     df_clean_turbine_merge = pd.merge(df_10m_clean, df_turbine, left_on=TABLE_TBL_POINTVALUE_10M_WTG_ID,
                                       right_on=IM_DIM_WIND_WTG_WTG_ID, suffixes=['_clean', '_turbine'])
-    df_clean_turbine_merge = ntf_filter(df_clean_turbine_merge)
+    df_clean_turbine_merge = ntf_cal_filter(df_clean_turbine_merge)
     groups = pd.merge(df_clean_turbine_merge, df_ntf, left_on=IM_DIM_WIND_WTG_SCADANTF,
                       right_on=TABLE_MDM_NTF_DATA_PARENTID).groupby(
         [TABLE_TBL_POINTVALUE_10M_WTG_ID, TABLE_TBL_POINTVALUE_10M_DATATIME])
@@ -74,33 +76,37 @@ def cal_10m_air_density(row):
                              1 / CONSTANT_GAS_DRY_AIR - 1 / CONSTANT_GAS_WATER_VAPOUR))
 
 
-def ntf_site_standard_filter(df_clean_turbine_merge):
-    temperature_filter = df_clean_turbine_merge[TABLE_IM_10M_CLEAN_CLEAN_FLAG].apply(
+# two condition will be filtered:
+# 1. temperature is not normal
+# 2. ntf wind speed is nan
+def ntf_site_standard_filter(df_all_merge):
+    temperature_condition = df_all_merge[TABLE_IM_10M_CLEAN_CLEAN_FLAG].apply(
         lambda x: clean_flag_check_is_normal(x, TABLE_TBL_POINTVALUE_10M_TEMOUTAVE))
-    return df_clean_turbine_merge[temperature_filter]
+    ntf_wind_speed_condition = df_all_merge[CAL_NTF_WIND_SPEED].notnull()
+    return df_all_merge[temperature_condition & ntf_wind_speed_condition]
 
 
 # WTG_ID, DATATIME, NTF_WIND_SPEED, TEMP, ALTITUDE, HUB_HEIGHT, AIR_DENSITY
 def ntf_site_standard_merge_all_table(df_10m_clean, df_turbine, df_ntf_wind_speed, df_site):
     df_clean_turbine_merge = pd.merge(df_10m_clean, df_turbine, left_on=TABLE_TBL_POINTVALUE_10M_WTG_ID,
                                       right_on=IM_DIM_WIND_WTG_WTG_ID, suffixes=['_clean', '_turbine'])
-    df_clean_turbine_merge = ntf_site_standard_filter(df_clean_turbine_merge)[
-        [TABLE_TBL_POINTVALUE_10M_WTG_ID, TABLE_TBL_POINTVALUE_10M_DATATIME, TABLE_TBL_POINTVALUE_10M_TEMOUTAVE,
-         IM_DIM_WIND_WTG_ALTITUDE, IM_DIM_WIND_WTG_HUB_HEIGHT, IM_DIM_WIND_WTG_SITE_ID]]
     df_ntf_clean_turbine_merge = pd.merge(df_ntf_wind_speed, df_clean_turbine_merge)
-    df_site = df_site[[IM_DIM_WIND_SITE_SITE_ID, IM_DIM_WIND_SITE_AIRDENSITY]]
     df_all_merge = pd.merge(df_ntf_clean_turbine_merge, df_site, left_on=IM_DIM_WIND_WTG_SITE_ID,
                             right_on=IM_DIM_WIND_SITE_SITE_ID)
-    return df_all_merge
+    df_all_merge = ntf_site_standard_filter(df_all_merge)
+    return df_all_merge[[TABLE_TBL_POINTVALUE_10M_WTG_ID, TABLE_TBL_POINTVALUE_10M_DATATIME, CAL_NTF_WIND_SPEED,
+                         TABLE_TBL_POINTVALUE_10M_TEMOUTAVE, IM_DIM_WIND_WTG_ALTITUDE, IM_DIM_WIND_WTG_HUB_HEIGHT,
+                         IM_DIM_WIND_SITE_AIRDENSITY]]
 
 
-# calculate ntf site wind speed and ntf standard wind speed, three condition will be nan:
+# calculate ntf site wind speed and ntf standard wind speed, some condition will be nan:
 # 1. temperature not normal
-# todo temperature influence the result, especially temp = 0.000017, the 'cal air density' is 19999.8013243251
-# todo furthermore, cal ntf site and standard wind speed will be influenced
+# 2. ntf wind speed is nan
 # todo if temperature is negative, the ntf site and ntf standard can not be computed
-# 2. ntf site wind speed or ntf standard wind speed > 100
-# 3. ntf site wind speed or ntf standard wind speed is nan
+# 3. ntf site wind speed or ntf standard wind speed is nan due to negative temperature when calculating power (1.0/3)
+# todo temperature influence the result, especially temp = 0.000017, the 'cal air density' is 19999.8013243251
+# todo furthermore, cal ntf site and standard wind speed will be too large
+# 4. ntf site wind speed or ntf standard wind speed is > 100
 def cal_ntf_site_standard(df_ntf_wind_speed, df_10m_clean, df_turbine, df_site):
     df_all_merge = ntf_site_standard_merge_all_table(df_10m_clean, df_turbine, df_ntf_wind_speed, df_site)
     cal_air_density = 'cal_air_density'
@@ -116,9 +122,9 @@ def cal_ntf_site_standard(df_ntf_wind_speed, df_10m_clean, df_turbine, df_site):
 
 def cal_ntfs(df_10m_clean, df_turbine, df_ntf, df_site):
     df_ntf_wind_speed = cal_ntf(df_10m_clean, df_turbine, df_ntf)
-    df_all_merge = cal_ntf_site_standard(df_ntf_wind_speed, df_10m_clean, df_turbine, df_site)
-    return df_all_merge[[TABLE_TBL_POINTVALUE_10M_WTG_ID, TABLE_TBL_POINTVALUE_10M_DATATIME, CAL_NTF_WIND_SPEED,
-                         CAL_NTF_WIND_SPEED_SITE, CAL_NTF_WIND_SPEED_STANDARD]]
+    df_all_ntfs = cal_ntf_site_standard(df_ntf_wind_speed, df_10m_clean, df_turbine, df_site)
+    return df_all_ntfs[[TABLE_TBL_POINTVALUE_10M_WTG_ID, TABLE_TBL_POINTVALUE_10M_DATATIME, CAL_NTF_WIND_SPEED,
+                        CAL_NTF_WIND_SPEED_SITE, CAL_NTF_WIND_SPEED_STANDARD]]
 
 
 def cal_predict_power(v0, p0, v1, p1, v2):

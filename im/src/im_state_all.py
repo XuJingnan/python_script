@@ -66,7 +66,6 @@ def fill_in_data(last, all_records, time_column):
         all_records = pd.concat([all_records, pd.DataFrame([new_last])], ignore_index=True)
 
     all_records = all_records.set_index(pd.DatetimeIndex(all_records[time_column]))
-    print all_records
 
     all_seconds = [None] * (24 * 60 * 60)
     last_second = all_records.iloc[0]

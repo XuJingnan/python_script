@@ -7,9 +7,9 @@ CONSTANT_RELATIVE_HUMIDITY = 0.5
 CONSTANT_STANDARD_AIR_DENSITY = 1.225
 
 # some directory
-INPUT_DIR = 'input/'
-CONFIG_DIR = 'config/'
-OUTPUT_DIR = 'output/'
+INPUT_DIR = 'input'
+CONFIG_DIR = 'config'
+OUTPUT_DIR = 'output'
 
 # some input table
 TABLE_TBL_POINTVALUE_10M = 'TBL_POINTVALUE_10M'
@@ -184,4 +184,4 @@ def group_process(grouped, agg):
     result = [agg(g) for g in d.values()]
     return pd.concat(result)
 
-# clean_flag_to_string(9162457088)
+# clean_flag_to_string(8796663455744)

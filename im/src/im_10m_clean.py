@@ -1,18 +1,20 @@
 import datetime
 import numpy as np
+import os
 
 from utils import *
 
 
 def read_data():
     # todo read yesterday last production
-    return pd.read_csv(INPUT_DIR + TABLE_TBL_POINTVALUE_10M + '.' + str(datetime.datetime.now().strftime('%Y-%m-%d')),
-                       parse_dates=[TABLE_TBL_POINTVALUE_10M_DATATIME])
+    return pd.read_csv(
+        os.sep.join([INPUT_DIR, str(datetime.datetime.now().strftime('%Y-%m-%d')), TABLE_TBL_POINTVALUE_10M]),
+        parse_dates=[TABLE_TBL_POINTVALUE_10M_DATATIME])
 
 
 def read_rules(rules_file):
     rules = {}
-    with open(CONFIG_DIR + rules_file) as f:
+    with open(os.sep.join([CONFIG_DIR, rules_file])) as f:
         for line in f:
             if line is None or line.strip() == '' or line.startswith('#'):
                 continue
@@ -75,7 +77,11 @@ def clean_data(df):
 
 
 def write_date(df):
-    df.to_csv(OUTPUT_DIR + TABLE_IM_10M_CLEAN + '.' + str(datetime.datetime.now().strftime('%Y-%m-%d')), index=False)
+    date_dir = str(datetime.datetime.now().strftime('%Y-%m-%d'))
+    out_dir = os.sep.join([OUTPUT_DIR, date_dir])
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    df.to_csv(os.sep.join([OUTPUT_DIR, date_dir, TABLE_IM_10M_CLEAN]), index=False)
 
 
 def im_10m_clean():

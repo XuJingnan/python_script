@@ -1,42 +1,42 @@
-import datetime
-import os
-
 from utils import *
 
 
-def sort_get_last_record(group):
+def sort_get_last_record(wtg_id, group):
     return pd.DataFrame([group.sort().iloc[-1]])
 
 
 def read_nc_data():
     # todo: read from csv written yesterday by this program
-    nc_before_dates = pd.DatetimeIndex(['2016-03-17 23:50:00', '2016-03-17 23:50:00', '2016-03-17 23:55:00'])
+    nc_before_dates = pd.DatetimeIndex(['2016-03-14 23:50:00', '2016-03-14 23:50:00', '2016-03-14 23:55:00'])
     df_nc_before = pd.DataFrame(
-        {TABLE_IM_NO_CONN_ID: [True, True, True],
-         TABLE_IM_NO_CONN_WTG_ID: ['430000001', '430000002', '430000001']}, index=nc_before_dates)
+        {TABLE_IM_NO_CONN_ID: [True, True, True], TABLE_IM_NO_CONN_NC_STARTTIME: nc_before_dates,
+         TABLE_IM_NO_CONN_WTG_ID: ['430000001', '430000002', '430000001']})
+    df_nc_before = df_nc_before.set_index(pd.DatetimeIndex(df_nc_before[TABLE_IM_NO_CONN_NC_STARTTIME]))
     groups = df_nc_before.groupby(by=[TABLE_IM_NO_CONN_WTG_ID])
-    df_nc_before = group_process(groups, sort_get_last_record)
+    df_nc_before = group_process(groups, sort_get_last_record, True)
 
     nc_dates = pd.DatetimeIndex(
-        ['2016-03-18 08:05:00', '2016-03-18 08:40:00', '2016-03-18 09:40:00', '2016-03-18 10:30:00'])
-    df_nc = pd.DataFrame({TABLE_IM_NO_CONN_ID: [False, False, True, True],
-                          TABLE_IM_NO_CONN_WTG_ID: ['430000001', '430000002', '430000001', '430000002']},
-                         index=nc_dates)
+        ['2016-03-15 08:05:00', '2016-03-15 08:40:00', '2016-03-15 09:40:00', '2016-03-15 10:30:00'])
+    df_nc = pd.DataFrame({TABLE_IM_NO_CONN_ID: [False, False, True, True], TABLE_IM_NO_CONN_NC_STARTTIME: nc_dates,
+                          TABLE_IM_NO_CONN_WTG_ID: ['430000001', '430000002', '430000001', '430000002']})
+    df_nc = df_nc.set_index(pd.DatetimeIndex(df_nc[TABLE_IM_NO_CONN_NC_STARTTIME]))
     return df_nc_before, df_nc
 
 
 def read_ss_data():
     # todo: read from csv written yesterday by this program
-    ss_before_dates = pd.DatetimeIndex(['2016-03-17 23:30:00', '2016-03-17 23:30:00'])
-    df_ss_before = pd.DataFrame({TABLE_IM_SS_ID: range(2),
-                                 TABLE_IM_SS_WTG_ID: ['430000001', '430000002']}, index=ss_before_dates)
+    ss_before_dates = pd.DatetimeIndex(['2016-03-14 23:30:00', '2016-03-14 23:30:00'])
+    df_ss_before = pd.DataFrame({TABLE_IM_SS_ID: range(2), TABLE_IM_SS_STARTTIME: ss_before_dates,
+                                 TABLE_IM_SS_WTG_ID: ['430000001', '430000002']})
+    df_ss_before = df_ss_before.set_index(pd.DatetimeIndex(df_ss_before[TABLE_IM_SS_STARTTIME]))
     groups = df_ss_before.groupby(by=[TABLE_IM_SS_WTG_ID])
-    df_ss_before = group_process(groups, sort_get_last_record)
+    df_ss_before = group_process(groups, sort_get_last_record, True)
 
     ss_today_dates = pd.DatetimeIndex(
-        ['2016-03-18 08:30:00', '2016-03-18 09:30:00', '2016-03-18 09:45:00', '2016-03-18 11:30:00'])
-    df_ss = pd.DataFrame({TABLE_IM_SS_ID: range(4), TABLE_IM_SS_WTG_ID: [
-        '430000001', '430000002', '430000001', '430000002']}, index=ss_today_dates)
+        ['2016-03-15 08:30:00', '2016-03-15 09:30:00', '2016-03-15 09:45:00', '2016-03-15 11:30:00'])
+    df_ss = pd.DataFrame({TABLE_IM_SS_ID: range(4), TABLE_IM_SS_STARTTIME: ss_today_dates, TABLE_IM_SS_WTG_ID: [
+        '430000001', '430000002', '430000001', '430000002']})
+    df_ss = df_ss.set_index(pd.DatetimeIndex(df_ss[TABLE_IM_SS_STARTTIME]))
     return df_ss_before, df_ss
 
 
@@ -47,7 +47,7 @@ def read_data():
 
 
 # @profile
-def fill_in_data(last, all_records):
+def fill_in_data(last, all_records, time_column):
     add_first, add_last = True, True
     first_time = all_records.index[0].to_datetime()
     if first_time.hour == 0 and first_time.minute == 0 and first_time.second == 0:
@@ -59,11 +59,12 @@ def fill_in_data(last, all_records):
     if add_first:
         new_first = last.copy()
         new_first = new_first.set_index(pd.DatetimeIndex([first_time.replace(hour=0, minute=0, second=0)]))
+        new_first[time_column] = new_first.index
         all_records = pd.concat([new_first, all_records])
-
     if add_last:
         new_last = all_records.iloc[-1:].copy()
         new_last = new_last.set_index(pd.DatetimeIndex([last_time.replace(hour=23, minute=59, second=59)]))
+        new_last[time_column] = new_last.index
         all_records = pd.concat([all_records, new_last])
     all_records = all_records.asfreq('1s', method='pad')
     return all_records
@@ -72,19 +73,20 @@ def fill_in_data(last, all_records):
 # @profile
 def write_turbine_state(turbine, turbine_state_all):
     date = str(datetime.datetime.now().strftime('%Y-%m-%d'))
-    out_dir = os.sep.join([OUTPUT_DIR, date, TURBINE_STATE_ALL])
+    out_dir = os.sep.join([OUTPUT_DIR, date, TABLE_IM_STATE_ALL])
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    turbine_state_all.to_csv(os.sep.join([out_dir, turbine]))
+    turbine_state_all.to_csv(os.sep.join([out_dir, turbine]), index=False)
 
 
 # @profile
 def cal_im_turbine_state(turbine, nc_last, nc_all, ss_last, ss_all):
-    nc_all = fill_in_data(nc_last, nc_all)
-    ss_all = fill_in_data(ss_last, ss_all)
-    turbine_all = pd.merge(nc_all, ss_all, left_on=[TABLE_IM_NO_CONN_WTG_ID],
-                           right_on=[TABLE_IM_SS_WTG_ID], left_index=True, right_index=True,
+    nc_all = fill_in_data(nc_last, nc_all, TABLE_IM_NO_CONN_NC_STARTTIME)
+    ss_all = fill_in_data(ss_last, ss_all, TABLE_IM_SS_STARTTIME)
+    turbine_all = pd.merge(nc_all, ss_all, on=[TABLE_IM_NO_CONN_WTG_ID], left_index=True, right_index=True,
                            suffixes=['_NC', '_SS'])
+    turbine_all[TABLE_IM_NO_CONN_NC_STARTTIME] = turbine_all.index
+    turbine_all[TABLE_IM_SS_STARTTIME] = turbine_all.index
     write_turbine_state(turbine, turbine_all)
 
 

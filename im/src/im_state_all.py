@@ -6,36 +6,27 @@ def sort_get_last_record(wtg_id, group):
 
 
 def read_nc_data():
-    # todo: read from csv written yesterday by this program
-    nc_before_dates = pd.DatetimeIndex(['2016-03-14 23:50:00', '2016-03-14 23:50:00', '2016-03-14 23:55:00'])
-    df_nc_before = pd.DataFrame(
-        {TABLE_IM_NO_CONN_ID: [True, True, True], TABLE_IM_NO_CONN_NC_STARTTIME: nc_before_dates,
-         TABLE_IM_NO_CONN_WTG_ID: ['430000001', '430000002', '430000001']})
-    df_nc_before = df_nc_before.set_index(pd.DatetimeIndex(df_nc_before[TABLE_IM_NO_CONN_NC_STARTTIME]))
-    groups = df_nc_before.groupby(by=[TABLE_IM_NO_CONN_WTG_ID])
-    df_nc_before = group_process(groups, sort_get_last_record, True)
+    df_nc_before_path = os.sep.join([INPUT_DIR, UTIL_YESTERDAY, TABLE_IM_NO_CONN, TABLE_IM_NO_CONN])
+    if os.path.exists(df_nc_before_path):
+        df_nc_before = pd.read_csv(df_nc_before_path)
+        df_nc_before = df_nc_before.set_index(pd.DatetimeIndex(df_nc_before[TABLE_IM_NO_CONN_NC_STARTTIME]))
+    else:
+        df_nc_before = pd.DataFrame(None)
 
-    nc_dates = pd.DatetimeIndex(
-        ['2016-03-15 08:05:00', '2016-03-15 08:40:00', '2016-03-15 09:40:00', '2016-03-15 10:30:00'])
-    df_nc = pd.DataFrame({TABLE_IM_NO_CONN_ID: [False, False, True, True], TABLE_IM_NO_CONN_NC_STARTTIME: nc_dates,
-                          TABLE_IM_NO_CONN_WTG_ID: ['430000001', '430000002', '430000001', '430000002']})
+    df_nc = pd.read_csv(os.sep.join([INPUT_DIR, get_date(), TABLE_IM_NO_CONN]))
     df_nc = df_nc.set_index(pd.DatetimeIndex(df_nc[TABLE_IM_NO_CONN_NC_STARTTIME]))
     return df_nc_before, df_nc
 
 
 def read_ss_data():
-    # todo: read from csv written yesterday by this program
-    ss_before_dates = pd.DatetimeIndex(['2016-03-14 23:30:00', '2016-03-14 23:30:00'])
-    df_ss_before = pd.DataFrame({TABLE_IM_SS_ID: range(2), TABLE_IM_SS_STARTTIME: ss_before_dates,
-                                 TABLE_IM_SS_WTG_ID: ['430000001', '430000002']})
-    df_ss_before = df_ss_before.set_index(pd.DatetimeIndex(df_ss_before[TABLE_IM_SS_STARTTIME]))
-    groups = df_ss_before.groupby(by=[TABLE_IM_SS_WTG_ID])
-    df_ss_before = group_process(groups, sort_get_last_record, True)
+    df_ss_before_path = os.sep.join([INPUT_DIR, UTIL_YESTERDAY, TABLE_IM_SS, TABLE_IM_SS])
+    if os.path.exists(df_ss_before_path):
+        df_ss_before = pd.read_csv(df_ss_before_path)
+        df_ss_before = df_ss_before.set_index(pd.DatetimeIndex(df_ss_before[TABLE_IM_SS_STARTTIME]))
+    else:
+        df_ss_before = pd.DataFrame(None)
 
-    ss_today_dates = pd.DatetimeIndex(
-        ['2016-03-15 08:30:00', '2016-03-15 09:30:00', '2016-03-15 09:45:00', '2016-03-15 11:30:00'])
-    df_ss = pd.DataFrame({TABLE_IM_SS_ID: range(4), TABLE_IM_SS_STARTTIME: ss_today_dates, TABLE_IM_SS_WTG_ID: [
-        '430000001', '430000002', '430000001', '430000002']})
+    df_ss = pd.read_csv(os.sep.join([INPUT_DIR, get_date(), TABLE_IM_SS]))
     df_ss = df_ss.set_index(pd.DatetimeIndex(df_ss[TABLE_IM_SS_STARTTIME]))
     return df_ss_before, df_ss
 
@@ -48,6 +39,7 @@ def read_data():
 
 # @profile
 def fill_in_data(last, all_records, time_column):
+    all_records = all_records.sort()
     add_first, add_last = True, True
     first_time = all_records.index[0].to_datetime()
     if first_time.hour == 0 and first_time.minute == 0 and first_time.second == 0:
@@ -56,7 +48,7 @@ def fill_in_data(last, all_records, time_column):
     if last_time.hour == 23 and last_time.minute == 59 and last_time.second == 59:
         add_last = False
 
-    if add_first:
+    if add_first and last is not None and first_time > last.index[0].to_datetime():
         new_first = last.copy()
         new_first = new_first.set_index(pd.DatetimeIndex([first_time.replace(hour=0, minute=0, second=0)]))
         new_first[time_column] = new_first.index
@@ -72,11 +64,11 @@ def fill_in_data(last, all_records, time_column):
 
 # @profile
 def write_turbine_state(turbine, turbine_state_all):
-    date = str(datetime.datetime.now().strftime('%Y-%m-%d'))
+    date = get_date()
     out_dir = os.sep.join([OUTPUT_DIR, date, TABLE_IM_STATE_ALL])
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    turbine_state_all.to_csv(os.sep.join([out_dir, turbine]), index=False)
+    turbine_state_all.to_csv(os.sep.join([out_dir, str(turbine)]), index=False)
 
 
 # @profile
@@ -91,33 +83,36 @@ def cal_im_turbine_state(turbine, nc_last, nc_all, ss_last, ss_all):
 
 
 def save_today_last(df_nc_before, df_nc, df_ss_before, df_ss):
-    df_nc_today = df_nc.groupby([TABLE_IM_NO_CONN_WTG_ID]).apply(
-        lambda x: x.sort_index(by=TABLE_IM_NO_CONN_NC_STARTTIME).iloc[-1])
-    df_nc_total = pd.concat([df_nc_before, df_nc_today]).groupby([TABLE_IM_NO_CONN_WTG_ID]).apply(
-        lambda x: x.sort_index(by=TABLE_IM_NO_CONN_NC_STARTTIME).iloc[-1])
-    df_nc_total.to_csv(
-        '.'.join([IM_STATE_ALL_NC_TURBINE_LAST_RECORD, str(datetime.datetime.now().strftime('%Y-%m-%d'))]))
+    df_nc_total = pd.concat([df_nc_before, df_nc])
+    nc_groups = df_nc_total.groupby([TABLE_IM_NO_CONN_WTG_ID])
+    df_nc_total = group_process(nc_groups, sort_get_last_record, True)
+    df_nc_total.to_csv(os.sep.join([INPUT_DIR, UTIL_YESTERDAY, TABLE_IM_NO_CONN, TABLE_IM_NO_CONN]), index=False)
 
-    df_ss_today = df_ss.groupby([TABLE_IM_SS_WTG_ID]).apply(
-        lambda x: x.sort_index(by=TABLE_IM_SS_STARTTIME).iloc[-1])
-    df_ss_total = pd.concat([df_ss_before, df_ss_today]).groupby([TABLE_IM_SS_WTG_ID]).apply(
-        lambda x: x.sort_index(by=TABLE_IM_SS_STARTTIME).iloc[-1])
-    df_ss_total.to_csv(
-        '.'.join([IM_STATE_ALL_SS_TURBINE_LAST_RECORD, str(datetime.datetime.now().strftime('%Y-%m-%d'))]), index=False)
+    df_ss_total = pd.concat([df_ss_before, df_ss])
+    ss_groups = df_ss_total.groupby([TABLE_IM_SS_WTG_ID])
+    df_ss_total = group_process(ss_groups, sort_get_last_record, True)
+    df_ss_total.to_csv(os.sep.join([INPUT_DIR, UTIL_YESTERDAY, TABLE_IM_SS, TABLE_IM_SS]), index=False)
 
 
 def cal_im_state_all():
     df_nc_before, df_nc, df_ss_before, df_ss = read_data()
 
-    # save_today_last(df_nc_before, df_nc, df_ss_before, df_ss)
-
     nc_dict = dict(list(df_nc.groupby([TABLE_IM_NO_CONN_WTG_ID])))
-    nc_before_dict = dict(list(df_nc_before.groupby([TABLE_IM_NO_CONN_WTG_ID])))
+    if not df_nc_before.empty:
+        nc_before_dict = dict(list(df_nc_before.groupby([TABLE_IM_NO_CONN_WTG_ID])))
+    else:
+        nc_before_dict = {}
     ss_dict = dict(list(df_ss.groupby([TABLE_IM_SS_WTG_ID])))
-    ss_before_dict = dict(list(df_ss_before.groupby([TABLE_IM_SS_WTG_ID])))
+    if not df_ss_before.empty:
+        ss_before_dict = dict(list(df_ss_before.groupby([TABLE_IM_SS_WTG_ID])))
+    else:
+        ss_before_dict = {}
+
     all_turbines = set(nc_dict.keys()) | set(ss_dict.keys())
     for t in all_turbines:
         cal_im_turbine_state(t, nc_before_dict.get(t), nc_dict.get(t), ss_before_dict.get(t), ss_dict.get(t))
+
+    save_today_last(df_nc_before, df_nc, df_ss_before, df_ss)
 
 
 if __name__ == '__main__':

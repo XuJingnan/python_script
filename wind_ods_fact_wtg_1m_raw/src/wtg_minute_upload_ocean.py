@@ -1,5 +1,6 @@
 import commands
 import datetime
+import os
 import sys
 
 SUCCESS = 0
@@ -214,6 +215,8 @@ def single_wtg_process(values, day):
     return_code = extract_file(path, file_name)
     if return_code != SUCCESS:
         write_error_log("%s/extract_file_error" % LOG_DIR, "%s.7z" % file_name)
+        return SUCCESS
+    if not os.path.exists(path + "/" + file_name):
         return SUCCESS
     with open(path + "/" + file_name) as f:
         header = f.readline().strip().split(",")

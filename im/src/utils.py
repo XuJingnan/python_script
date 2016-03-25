@@ -173,6 +173,8 @@ IM_TURBINES = 'IM_TURBINES'
 IM_STATE_ALL_NC_TURBINE_LAST_RECORD = 'IM_STATE_ALL_NC_TURBINE_LAST_RECORD'
 IM_STATE_ALL_SS_TURBINE_LAST_RECORD = 'IM_STATE_ALL_SS_TURBINE_LAST_RECORD'
 
+## some output table
+DW_TMP_FACT_WTG_10M_CLEAN = 'DW_TMP_FACT_WTG_10M_CLEAN'
 
 # some functions
 def clean_flag_set(clean_flag, clean_flag_field, clean_flag_condition):

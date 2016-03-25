@@ -2,14 +2,15 @@ from utils import *
 
 
 def read_data(turbine):
-    date = str(datetime.datetime.now().strftime('%Y-%m-%d'))
+    date = execute_day_str
     turbine_cal_real = pd.read_csv(os.sep.join([OUTPUT_DIR, date, TABLE_IM_10M_CAL_REAL, turbine]))
     turbine_cal_real = turbine_cal_real.set_index(pd.DatetimeIndex(turbine_cal_real[TABLE_TBL_POINTVALUE_10M_DATATIME]))
-    turbine_state_all = pd.read_csv(os.sep.join([OUTPUT_DIR, date, TABLE_IM_STATE_ALL, turbine]))
+    turbine_state_all = pd.read_pickle(os.sep.join([OUTPUT_DIR, date, TABLE_IM_STATE_ALL, turbine]))
     turbine_state_all = turbine_state_all.set_index(pd.DatetimeIndex(turbine_state_all[TABLE_IM_NO_CONN_NC_STARTTIME]))
     return turbine_cal_real, turbine_state_all
 
 
+# @profile
 def fill_in_data(turbine_real_all):
     turbine_real_all[TABLE_IM_PRODUCTION_BASE_PRODUCTION_PER_SECOND] = turbine_real_all[CAL_REAL_APPRODUCTION_10M] / (
         10 * 60)
@@ -18,14 +19,14 @@ def fill_in_data(turbine_real_all):
     return turbine_real_all
 
 
+# @profile
 def write_data(turbine, turbine_base):
-    date = str(datetime.datetime.now().strftime('%Y-%m-%d'))
-    out_dir = os.sep.join([OUTPUT_DIR, date, TABLE_IM_PRODUCTION_BASE])
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    turbine_base.to_csv(os.sep.join([out_dir, str(turbine)]))
+    out_dir = os.sep.join([OUTPUT_DIR, execute_day_str, TABLE_IM_PRODUCTION_BASE])
+    make_dirs(out_dir)
+    turbine_base.to_pickle(os.sep.join([out_dir, str(turbine)]))
 
 
+# @profile
 def cal_turbine_production_base(turbine, real_all, state_all):
     real_all = fill_in_data(real_all)
     turbine_base = pd.merge(real_all, state_all, on=[TABLE_TBL_POINTVALUE_10M_WTG_ID], left_index=True,
@@ -37,9 +38,11 @@ def cal_turbine_production_base(turbine, real_all, state_all):
     del state_all
 
 
+# @profile
 def cal_production_base():
     turbines = read_all_turbines()
     for t in turbines:
+        print t
         turbine_cal_real, turbine_state_all = read_data(t)
         cal_turbine_production_base(t, turbine_cal_real, turbine_state_all)
 

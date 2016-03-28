@@ -16,8 +16,7 @@ def read_data():
     make_dirs(yesterday_dir)
     yesterday_files = []
     for f in os.listdir(yesterday_dir):
-        yesterday_files.append(
-            pd.read_csv(os.sep.join([yesterday_dir, f]), parse_dates=[STG_FACT_WTG_10M_DATATIME]))
+        yesterday_files.append(pd.read_csv(os.sep.join([yesterday_dir, f]), parse_dates=[STG_FACT_WTG_10M_DATATIME]))
     if len(yesterday_files) > 0:
         df_yesterday = pd.concat(yesterday_files)
         # only get the execute day before last ten minutes records
@@ -143,13 +142,11 @@ def write_date(turbine, df):
     make_dirs(out_dir)
     columns = [STG_FACT_WTG_10M_WTG_ID, STG_FACT_WTG_10M_DATATIME, STG_FACT_WTG_10M_TEMOUTAVE,
                STG_FACT_WTG_10M_WINDDIRECTIONAVE, STG_FACT_WTG_10M_NACELLEPOSITIONAVE,
-               STG_FACT_WTG_10M_BLADEPITCHAVE, STG_FACT_WTG_10M_WINDSPEEDAVE,
-               STG_FACT_WTG_10M_WINDSPEEDSTD, STG_FACT_WTG_10M_ROTORSPDAVE,
-               STG_FACT_WTG_10M_GENSPDAVE, STG_FACT_WTG_10M_TORQUESETPOINTAVE,
-               STG_FACT_WTG_10M_TORQUEAVE, STG_FACT_WTG_10M_ACTIVEPWAVE,
-               STG_FACT_WTG_10M_PCURVESTSAVE, STG_FACT_WTG_10M_APPRODUCTION,
-               STG_FACT_WTG_10M_RPPRODUCTION, STG_FACT_WTG_10M_APCONSUMED,
-               STG_FACT_WTG_10M_RPCONSUMED, TABLE_IM_10M_CLEAN_CLEAN_FLAG]
+               STG_FACT_WTG_10M_BLADEPITCHAVE, STG_FACT_WTG_10M_WINDSPEEDAVE, STG_FACT_WTG_10M_WINDSPEEDSTD,
+               STG_FACT_WTG_10M_READWINDSPEEDAVE, STG_FACT_WTG_10M_ROTORSPDAVE, STG_FACT_WTG_10M_GENSPDAVE,
+               STG_FACT_WTG_10M_TORQUESETPOINTAVE, STG_FACT_WTG_10M_TORQUEAVE, STG_FACT_WTG_10M_ACTIVEPWAVE,
+               STG_FACT_WTG_10M_PCURVESTSAVE, STG_FACT_WTG_10M_APPRODUCTION, STG_FACT_WTG_10M_RPPRODUCTION,
+               STG_FACT_WTG_10M_APCONSUMED, STG_FACT_WTG_10M_RPCONSUMED, TABLE_IM_10M_CLEAN_CLEAN_FLAG]
     df[columns].to_csv(os.sep.join([out_dir, turbine]), index=False)
 
     with open(os.sep.join([out_dir, IM_TURBINES]), 'a') as f:

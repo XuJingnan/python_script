@@ -137,7 +137,7 @@ def cal_wtg_real_production(df_wtg):
     in_columns = [STG_FACT_WTG_10M_WTG_ID, STG_FACT_WTG_10M_DATATIME,
                   STG_FACT_WTG_10M_TEMOUTAVE, STG_FACT_WTG_10M_WINDDIRECTIONAVE,
                   STG_FACT_WTG_10M_NACELLEPOSITIONAVE, STG_FACT_WTG_10M_BLADEPITCHAVE,
-                  STG_FACT_WTG_10M_WINDSPEEDAVE, STG_FACT_WTG_10M_WINDSPEEDSTD,
+                  STG_FACT_WTG_10M_WINDSPEEDAVE, STG_FACT_WTG_10M_WINDSPEEDSTD, STG_FACT_WTG_10M_READWINDSPEEDAVE,
                   STG_FACT_WTG_10M_ROTORSPDAVE, STG_FACT_WTG_10M_GENSPDAVE,
                   STG_FACT_WTG_10M_TORQUESETPOINTAVE, STG_FACT_WTG_10M_TORQUEAVE,
                   STG_FACT_WTG_10M_ACTIVEPWAVE, STG_FACT_WTG_10M_PCURVESTSAVE,
@@ -194,7 +194,7 @@ def cal_wtg_real_production(df_wtg):
     out_columns = [STG_FACT_WTG_10M_WTG_ID, STG_FACT_WTG_10M_DATATIME,
                    STG_FACT_WTG_10M_TEMOUTAVE, STG_FACT_WTG_10M_WINDDIRECTIONAVE,
                    STG_FACT_WTG_10M_NACELLEPOSITIONAVE, STG_FACT_WTG_10M_BLADEPITCHAVE,
-                   STG_FACT_WTG_10M_WINDSPEEDAVE, STG_FACT_WTG_10M_WINDSPEEDSTD,
+                   STG_FACT_WTG_10M_WINDSPEEDAVE, STG_FACT_WTG_10M_WINDSPEEDSTD, STG_FACT_WTG_10M_READWINDSPEEDAVE,
                    STG_FACT_WTG_10M_ROTORSPDAVE, STG_FACT_WTG_10M_GENSPDAVE,
                    STG_FACT_WTG_10M_TORQUESETPOINTAVE, STG_FACT_WTG_10M_TORQUEAVE,
                    STG_FACT_WTG_10M_ACTIVEPWAVE, STG_FACT_WTG_10M_PCURVESTSAVE,
@@ -230,10 +230,14 @@ def cal_predict_production(groups, pc_type):
     in_columns = [STG_FACT_WTG_10M_WTG_ID, STG_FACT_WTG_10M_DATATIME, CAL_NTF_WIND_SPEED_STANDARD,
                   DIM_PC_DATA_WIND_SPEED_RANK, DIM_PC_DATA_POWER]
     groups = groups[in_columns]
+
+    predict_power_name = CAL_THEORY_POWER_10M if pc_type == 1 else CAL_ACTIVE_POWER_10M
     predict_production_name = CAL_THEORY_APPRODUCTION_10M if pc_type == 1 else CAL_ACTIVE_APPRODUCTION_10M
+
     first_row = groups.iloc[0].copy()
+    first_row[predict_power_name] = np.nan
     first_row[predict_production_name] = np.nan
-    out_columns = [STG_FACT_WTG_10M_WTG_ID, STG_FACT_WTG_10M_DATATIME, predict_production_name]
+    out_columns = [STG_FACT_WTG_10M_WTG_ID, STG_FACT_WTG_10M_DATATIME, predict_power_name, predict_production_name]
 
     ntf_standard_normal_condition = groups[CAL_NTF_WIND_SPEED_STANDARD].notnull()
     if groups[ntf_standard_normal_condition].empty:
@@ -249,11 +253,12 @@ def cal_predict_production(groups, pc_type):
     if match.empty:
         return first_row[out_columns]
     after_row = match.iloc[0]
-    first_row[predict_production_name] = cal_predict_power(before_row[DIM_PC_DATA_WIND_SPEED_RANK],
-                                                           before_row[DIM_PC_DATA_POWER],
-                                                           after_row[DIM_PC_DATA_WIND_SPEED_RANK],
-                                                           after_row[DIM_PC_DATA_POWER],
-                                                           first_row[CAL_NTF_WIND_SPEED_STANDARD]) / 6
+    first_row[predict_power_name] = cal_predict_power(before_row[DIM_PC_DATA_WIND_SPEED_RANK],
+                                                      before_row[DIM_PC_DATA_POWER],
+                                                      after_row[DIM_PC_DATA_WIND_SPEED_RANK],
+                                                      after_row[DIM_PC_DATA_POWER],
+                                                      first_row[CAL_NTF_WIND_SPEED_STANDARD])
+    first_row[predict_production_name] = first_row[predict_power_name] / 6
     return first_row[out_columns]
 
 
@@ -266,13 +271,13 @@ def im_10m_turbine_cal_real(turbine):
                                   on=[STG_FACT_WTG_10M_WTG_ID, STG_FACT_WTG_10M_DATATIME], how='left')
     df_cal_real = cal_wtg_real_production(df_clean_ntf_merge)
 
-    # calculate contract production
+    # calculate contract power and production with standard ntf wind speed
     df_pc_all = get_pc_info(df_wtg_pc, df_pc_data, 1)
     groups = pd.merge(df_cal_real, df_pc_all, left_on=STG_FACT_WTG_10M_WTG_ID,
                       right_on=DIM_WTG_PC_WTG_ID).groupby(by=[STG_FACT_WTG_10M_DATATIME])
     df_contracts = groups.apply(cal_predict_production, 1)
 
-    # calculate actual production
+    # calculate actual power and production with standard ntf wind speed
     df_pc_all = get_pc_info(df_wtg_pc, df_pc_data, 3)
     groups = pd.merge(df_cal_real, df_pc_all, left_on=STG_FACT_WTG_10M_WTG_ID,
                       right_on=DIM_WTG_PC_WTG_ID).groupby(by=[STG_FACT_WTG_10M_DATATIME])

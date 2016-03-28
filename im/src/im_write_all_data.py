@@ -3,7 +3,6 @@ from sqlalchemy import create_engine
 from utils import *
 
 
-# todo replace
 def write_to_db(df, table, if_exists='append', index=False):
     engine = create_engine('oracle+cx_oracle://im:im@172.16.33.159:1521/prjdb')
     df.to_sql(name=table, con=engine, if_exists=if_exists, index=index, chunksize=1000)

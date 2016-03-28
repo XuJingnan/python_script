@@ -1,67 +1,84 @@
 from utils import *
 
 
-def read_nc_data():
-    df_nc_before_dir = os.sep.join([INPUT_DIR, UTIL_YESTERDAY, STG_FACT_NO_CONN])
-    make_dirs(df_nc_before_dir)
-    yesterday_nc_files = []
-    for f in os.listdir(df_nc_before_dir):
-        yesterday_nc_files.append(
-            pd.read_csv(os.sep.join([df_nc_before_dir, f]), parse_dates=[STG_FACT_NO_CONN_NC_STARTTIME]))
-    if len(yesterday_nc_files) > 0:
-        df_yesterday_nc = pd.concat(yesterday_nc_files)
-        df_yesterday_nc = df_yesterday_nc[df_yesterday_nc[STG_FACT_NO_CONN_NC_STARTTIME] < execute_day]
-    else:
-        df_yesterday_nc = pd.DataFrame(None)
+def read_data(table):
+    if table == STG_FACT_NO_CONN:
+        start_time_col, wtg_col = STG_FACT_NO_CONN_NC_STARTTIME, STG_FACT_NO_CONN_WTG_ID
+        out_columns = [STG_FACT_NO_CONN_WTG_ID, STG_FACT_NO_CONN_NC_ID, STG_FACT_NO_CONN_NC_STARTTIME,
+                       STG_FACT_NO_CONN_NC_STARTTIME_MSEC]
+    elif table == STG_FACT_STANDARD_STATE:
+        start_time_col, wtg_col = STG_FACT_STANDARD_STATE_SS_STARTTIME, STG_FACT_STANDARD_STATE_WTG_ID
+        out_columns = [STG_FACT_STANDARD_STATE_WTG_ID, STG_FACT_STANDARD_STATE_SS_ID,
+                       STG_FACT_STANDARD_STATE_SS_STARTTIME, STG_FACT_STANDARD_STATE_SS_STARTTIME_MSEC]
+    elif table == STG_FACT_HEALTH_STATE:
+        start_time_col, wtg_col = STG_FACT_HEALTH_STATE_SC_STARTTIME, STG_FACT_HEALTH_STATE_WTG_ID
+        out_columns = [STG_FACT_HEALTH_STATE_WTG_ID, STG_FACT_HEALTH_STATE_SC_ID, STG_FACT_HEALTH_STATE_SC_STARTTIME,
+                       STG_FACT_HEALTH_STATE_SC_STARTTIME_MSEC]
 
-    df_nc = pd.read_csv(os.sep.join([INPUT_DIR, execute_day_str, STG_FACT_NO_CONN]),
-                        parse_dates=[STG_FACT_NO_CONN_NC_STARTTIME])
-    df_mapping = pd.read_csv(os.sep.join([INPUT_DIR, execute_day_str, DIM_ALIAS_ENVID_MAPPING]))
-    df_nc = pd.merge(df_nc, df_mapping, left_on=STG_FACT_NO_CONN_WTG_ID, right_on=DIM_ALIAS_ENVID_MAPPING_IDX)
-    df_nc[STG_FACT_NO_CONN_WTG_ID] = df_nc[DIM_ALIAS_ENVID_MAPPING_MDM_ID]
-    df_nc = pd.concat([df_yesterday_nc, df_nc])
-    df_nc = df_nc.set_index(pd.DatetimeIndex(df_nc[STG_FACT_NO_CONN_NC_STARTTIME]))
-    nc_columns = [STG_FACT_NO_CONN_WTG_ID, STG_FACT_NO_CONN_NC_STARTTIME, STG_FACT_NO_CONN_ID]
-    return df_nc[nc_columns]
+    df_before_dir = os.sep.join([INPUT_DIR, UTIL_YESTERDAY, table])
+    df_dir = os.sep.join([INPUT_DIR, execute_day_str, table])
+
+    make_dirs(df_before_dir)
+    yesterday_files = []
+    for f in os.listdir(df_before_dir):
+        yesterday_files.append(
+            pd.read_csv(os.sep.join([df_before_dir, f]), parse_dates=[start_time_col]))
+    if len(yesterday_files) > 0:
+        df_yesterday = pd.concat(yesterday_files)
+        df_yesterday = df_yesterday[df_yesterday[start_time_col] < execute_day]
+    else:
+        df_yesterday = pd.DataFrame(None)
+
+    df = pd.read_csv(df_dir, parse_dates=[start_time_col])
+    if not df.empty:
+        df_mapping = pd.read_csv(os.sep.join([INPUT_DIR, execute_day_str, DIM_ALIAS_ENVID_MAPPING]))
+        df = pd.merge(df, df_mapping, left_on=wtg_col, right_on=DIM_ALIAS_ENVID_MAPPING_IDX)
+        df[wtg_col] = df[DIM_ALIAS_ENVID_MAPPING_MDM_ID]
+
+    df = pd.concat([df_yesterday, df])
+    return df[out_columns]
+
+
+def read_nc_data():
+    return read_data(STG_FACT_NO_CONN)
 
 
 def read_ss_data():
-    df_ss_before_dir = os.sep.join([INPUT_DIR, UTIL_YESTERDAY, STG_FACT_STANDARD_STATE])
-    make_dirs(df_ss_before_dir)
-    yesterday_ss_files = []
-    for f in os.listdir(df_ss_before_dir):
-        yesterday_ss_files.append(
-            pd.read_csv(os.sep.join([df_ss_before_dir, f]), parse_dates=[STG_FACT_STANDARD_STATE_STARTTIME]))
-    if len(yesterday_ss_files) > 0:
-        df_yesterday_ss = pd.concat(yesterday_ss_files)
-        df_yesterday_ss = df_yesterday_ss[df_yesterday_ss[STG_FACT_STANDARD_STATE_STARTTIME] < execute_day]
-    else:
-        df_yesterday_ss = pd.DataFrame(None)
-
-    df_ss = pd.read_csv(os.sep.join([INPUT_DIR, execute_day_str, STG_FACT_STANDARD_STATE]),
-                        parse_dates=[STG_FACT_STANDARD_STATE_STARTTIME])
-    df_mapping = pd.read_csv(os.sep.join([INPUT_DIR, execute_day_str, DIM_ALIAS_ENVID_MAPPING]))
-    df_ss = pd.merge(df_ss, df_mapping, left_on=STG_FACT_STANDARD_STATE_WTG_ID, right_on=DIM_ALIAS_ENVID_MAPPING_IDX)
-    df_ss[STG_FACT_STANDARD_STATE_WTG_ID] = df_ss[DIM_ALIAS_ENVID_MAPPING_MDM_ID]
-    df_ss = pd.concat([df_yesterday_ss, df_ss])
-    df_ss = df_ss.set_index(pd.DatetimeIndex(df_ss[STG_FACT_STANDARD_STATE_STARTTIME]))
-    ss_columns = [STG_FACT_STANDARD_STATE_WTG_ID, STG_FACT_STANDARD_STATE_STARTTIME, STG_FACT_STANDARD_STATE_ID]
-    return df_ss[ss_columns]
+    return read_data(STG_FACT_STANDARD_STATE)
 
 
-# todo need to check raw data
-def filter_conflict_time(df, time_col):
-    groups = df.groupby(by=[time_col])
-    df = groups.apply(lambda x: x.iloc[-1])
-    return df
+def read_hs_data():
+    return read_data(STG_FACT_HEALTH_STATE)
+
+
+def save_last_record(turbine, df, status_type):
+    if status_type == 0:
+        out_dir = STG_FACT_NO_CONN
+    elif status_type == 1:
+        out_dir = STG_FACT_STANDARD_STATE
+    elif status_type == 2:
+        out_dir = STG_FACT_HEALTH_STATE
+    out_dir = os.sep.join([INPUT_DIR, UTIL_YESTERDAY, out_dir, turbine])
+    df.to_pickle(out_dir)
 
 
 # @profile
 def fill_in_data(turbine, df, status_type):
     if status_type == 0:
-        id_col, time_col, status_col = STG_FACT_NO_CONN_WTG_ID, STG_FACT_NO_CONN_NC_STARTTIME, STG_FACT_NO_CONN_ID
-    else:
-        id_col, time_col, status_col = STG_FACT_STANDARD_STATE_WTG_ID, STG_FACT_STANDARD_STATE_STARTTIME, STG_FACT_STANDARD_STATE_ID
+        id_col, time_col, msec_col, status_col = STG_FACT_NO_CONN_WTG_ID, \
+                                                 STG_FACT_NO_CONN_NC_STARTTIME, \
+                                                 STG_FACT_NO_CONN_NC_STARTTIME_MSEC, \
+                                                 STG_FACT_NO_CONN_NC_ID
+    elif status_type == 1:
+        id_col, time_col, msec_col, status_col = STG_FACT_STANDARD_STATE_WTG_ID, \
+                                                 STG_FACT_STANDARD_STATE_SS_STARTTIME, \
+                                                 STG_FACT_STANDARD_STATE_SS_STARTTIME_MSEC, \
+                                                 STG_FACT_STANDARD_STATE_SS_ID
+    elif status_type == 2:
+        id_col, time_col, msec_col, status_col = STG_FACT_HEALTH_STATE_WTG_ID, \
+                                                 STG_FACT_HEALTH_STATE_SC_STARTTIME, \
+                                                 STG_FACT_HEALTH_STATE_SC_STARTTIME_MSEC, \
+                                                 STG_FACT_HEALTH_STATE_SC_ID
 
     start = pd.DataFrame({status_col: np.nan}, index=pd.DatetimeIndex([execute_day_first_second]))
     # the last record of 23:59:59 need to be padded, so end time need to be today
@@ -74,9 +91,14 @@ def fill_in_data(turbine, df, status_type):
         df[id_col] = turbine
         return df[(df.index >= execute_day) & (df.index < today)]
 
-    df = df.sort_index(by=[time_col])
+    # sort by start time column and msec col
+    # filter multi records in one second, preserve the last one
+    # set index
+    df = df.sort_index(by=[time_col, msec_col])
+    df = df.groupby([time_col]).apply(lambda x: (x.iloc[-1]))
+    df = df.set_index(pd.DatetimeIndex(df[time_col]))
+    del df[msec_col]
     save_last_record(turbine, df.iloc[-1:], status_type)
-    df = filter_conflict_time(df, time_col)
 
     add_first, add_last = True, True
     first_time = df.index[0].to_datetime()
@@ -104,38 +126,43 @@ def fill_in_data(turbine, df, status_type):
 def write_turbine_state(turbine, state_all):
     out_dir = os.sep.join([OUTPUT_DIR, execute_day_str, TABLE_IM_STATE_ALL])
     make_dirs(out_dir)
-    state_all.to_pickle(os.sep.join([out_dir, turbine]))
+    out_columns = [STG_FACT_NO_CONN_WTG_ID, STG_FACT_NO_CONN_NC_STARTTIME, STG_FACT_NO_CONN_NC_ID,
+                   STG_FACT_STANDARD_STATE_SS_ID, STG_FACT_HEALTH_STATE_SC_ID]
+    state_all[out_columns].to_pickle(os.sep.join([out_dir, turbine]))
 
 
 # @profile
-def cal_im_turbine_state(t, t_nc, t_ss):
+def cal_im_turbine_state(t, t_nc, t_ss, t_hs):
     print t
     t_nc = fill_in_data(t, t_nc, 0)
     t_ss = fill_in_data(t, t_ss, 1)
-    state_all = pd.merge(t_nc, t_ss, on=[STG_FACT_NO_CONN_WTG_ID], left_index=True, right_index=True, how='outer')
+    t_hs = fill_in_data(t, t_hs, 2)
+
+    state_all = pd.merge(t_nc, t_ss, on=[STG_FACT_NO_CONN_WTG_ID],
+                         left_index=True, right_index=True, how='outer')
+    state_all = pd.merge(state_all, t_hs, on=[STG_FACT_NO_CONN_WTG_ID],
+                         left_index=True, right_index=True, how='outer')
+
     state_all[STG_FACT_NO_CONN_NC_STARTTIME] = state_all.index
-    state_all[STG_FACT_STANDARD_STATE_STARTTIME] = state_all.index
+    state_all[STG_FACT_STANDARD_STATE_SS_STARTTIME] = state_all.index
+    state_all[STG_FACT_HEALTH_STATE_SC_STARTTIME] = state_all.index
     write_turbine_state(t, state_all)
-
-
-def save_last_record(turbine, df, status_type):
-    out_dir = STG_FACT_NO_CONN if status_type == 0 else STG_FACT_STANDARD_STATE
-    out_dir = os.sep.join([INPUT_DIR, UTIL_YESTERDAY, out_dir, turbine])
-    df.to_csv(out_dir, index=False)
 
 
 # @profile
 def cal_im_state_all():
-    df_nc, df_ss = read_nc_data(), read_ss_data()
+    df_nc, df_ss, df_hs = read_nc_data(), read_ss_data(), read_hs_data()
 
     nc_dict = dict(list(df_nc.groupby([STG_FACT_NO_CONN_WTG_ID])))
     ss_dict = dict(list(df_ss.groupby([STG_FACT_STANDARD_STATE_WTG_ID])))
+    hs_dict = dict(list(df_hs.groupby([STG_FACT_HEALTH_STATE_WTG_ID])))
 
-    all_turbines = set(nc_dict.keys()) | set(ss_dict.keys())
+    all_turbines = set(nc_dict.keys()) | set(ss_dict.keys()) | set(hs_dict.keys())
     all_10m_turbines = set(read_all_turbines())
     all_turbines = all_turbines & all_10m_turbines
     for t in all_turbines:
-        cal_im_turbine_state(t, nc_dict.get(t), ss_dict.get(t))
+        print t
+        cal_im_turbine_state(t, nc_dict.get(t), ss_dict.get(t), hs_dict.get(t))
 
 
 if __name__ == '__main__':

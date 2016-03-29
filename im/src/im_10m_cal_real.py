@@ -17,7 +17,7 @@ def read_data(turbine):
 def write_data(turbine, df):
     print 'start write ', turbine
     # only get execute day records
-    df = df[df[STG_FACT_WTG_10M_DATATIME] >= execute_day_first_second]
+    df = df[df[STG_FACT_WTG_10M_DATATIME] >= execute_day_first_ten_minute]
     date = execute_day_str
     out_dir = os.sep.join([OUTPUT_DIR, date, TABLE_IM_10M_CAL_REAL])
     make_dirs(out_dir)

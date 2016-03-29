@@ -115,6 +115,8 @@ CLEAN_FLAG_TAG_NULL = 1
 CLEAN_FLAG_TAG_OUT_OF_RANGE = 2
 CLEAN_FLAG_TAG_WIND_SPEED_FREEZE = 4
 # todo STG_FACT_WTG_10M_WINDSPEEDSTD / STG_FACT_WTG_10M_WINDSPEEDAVE too big ?
+# todo power curve valid
+# todo ss & hs table more fields
 CLEAN_FLAG_TAG_PRODUCTION_DECREASE = 1
 CLEAN_FLAG_TAG_PRODUCTION_TOO_LARGE = 2
 CLEAN_FLAG_TAG_PRODUCTION_NAN = 4
@@ -293,6 +295,7 @@ def rm_dirs(path):
 # todo debug_flag today
 # today = datetime.datetime.now()
 today = datetime.datetime(year=2016, month=3, day=11, hour=0, minute=0, second=0, microsecond=0)
+today_first_second = today.replace(second=1)
 execute_day = today - datetime.timedelta(days=1)
 execute_day_before = execute_day - datetime.timedelta(days=1)
 
@@ -300,17 +303,14 @@ today_str = today.strftime('%Y-%m-%d')
 execute_day_str = execute_day.strftime('%Y-%m-%d')
 execute_day_before_str = execute_day_before.strftime('%Y-%m-%d')
 
-execute_day_first_second = execute_day.replace(hour=0, minute=0, second=0, microsecond=0)
-execute_day_last_ten_minutes = execute_day.replace(hour=23, minute=50, second=0, microsecond=0)
-execute_day_last_second = execute_day.replace(hour=23, minute=59, second=59, microsecond=0)
+execute_day_first_second = execute_day.replace(hour=0, minute=0, second=1, microsecond=0)
+execute_day_last_second = today
+execute_day_first_ten_minute = execute_day.replace(hour=0, minute=10, second=0, microsecond=0)
+execute_day_last_ten_minute = today
 
 
-def is_execute_day_before_more(d):
-    return d < execute_day
-
-
-def is_execute_day_before(d):
-    return d.year == execute_day_before.year and d.month == execute_day_before.month and d.day == execute_day_before.day
+def is_execute_day_before_last_ten_minutes(d):
+    return d == execute_day
 
 
 def is_execute_day_first_second(d):
@@ -321,14 +321,16 @@ def is_execute_day_last_second(d):
     return d == execute_day_last_second
 
 
-def is_execute_day_before_last_ten_minutes(d):
-    return is_execute_day_before(d) and d.hour == 23 and d.minute == 50 and d.second == 0
+def is_execute_day_first_ten_minutes(d):
+    return d == execute_day_first_ten_minute
 
 
 def is_execute_day_last_ten_minutes(d):
-    return d.day == execute_day.day and d.hour == 23 and d.minute == 50 and d.second == 0
+    return d == execute_day_last_ten_minute
 
-# clean_flag_to_string(8796093030400)
+
+debug = False
+# clean_flag_to_string(8796093022208)
 # print clean_flag_set(0, STG_FACT_WTG_10M_MISSING, CLEAN_FLAG_TAG_NULL)
 # production_error_to_string(112)
 # print first_time_is_yesterday(datetime.datetime(2016, 03, 22))

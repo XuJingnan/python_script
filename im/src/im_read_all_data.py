@@ -30,8 +30,8 @@ def read_dim_wtg_full(day):
 
 def read_stg_fact_no_conn(day, today):
     sql = 'select * from {table} ' \
-          'where nc_starttime >= to_date(\'{yesterday}\', \'yyyy-mm-dd\') ' \
-          'and nc_starttime < to_date(\'{today}\', \'yyyy-mm-dd\')'.format(
+          'where nc_starttime > to_date(\'{yesterday}\', \'yyyy-mm-dd\') ' \
+          'and nc_starttime <= to_date(\'{today}\', \'yyyy-mm-dd\')'.format(
         table=STG_FACT_NO_CONN, yesterday=day, today=today)
     out_path = os.sep.join([INPUT_DIR, day, STG_FACT_NO_CONN])
     read_db(sql, out_path)
@@ -39,8 +39,8 @@ def read_stg_fact_no_conn(day, today):
 
 def read_stg_fact_standard_state(day, today):
     sql = 'select * from {table} ' \
-          'where ss_starttime >= to_date(\'{yesterday}\', \'yyyy-mm-dd\') ' \
-          'and ss_starttime < to_date(\'{today}\', \'yyyy-mm-dd\')'.format(
+          'where ss_starttime > to_date(\'{yesterday}\', \'yyyy-mm-dd\') ' \
+          'and ss_starttime <= to_date(\'{today}\', \'yyyy-mm-dd\')'.format(
         table=STG_FACT_STANDARD_STATE, yesterday=day, today=today)
     out_path = os.sep.join([INPUT_DIR, day, STG_FACT_STANDARD_STATE])
     read_db(sql, out_path)
@@ -48,8 +48,8 @@ def read_stg_fact_standard_state(day, today):
 
 def read_stg_fact_health_state(day, today):
     sql = 'select * from {table} ' \
-          'where sc_starttime >= to_date(\'{yesterday}\', \'yyyy-mm-dd\') ' \
-          'and sc_starttime < to_date(\'{today}\', \'yyyy-mm-dd\')'.format(
+          'where sc_starttime > to_date(\'{yesterday}\', \'yyyy-mm-dd\') ' \
+          'and sc_starttime <= to_date(\'{today}\', \'yyyy-mm-dd\')'.format(
         table=STG_FACT_HEALTH_STATE, yesterday=day, today=today)
     out_path = os.sep.join([INPUT_DIR, day, STG_FACT_HEALTH_STATE])
     read_db(sql, out_path)
@@ -77,9 +77,9 @@ def read_stg_fact_wtg_10m(day, today):
     sql = 'select WTG_ID,DATATIME,TEMOUTAVE,WINDDIRECTIONAVE,NACELLEPOSITIONAVE,BLADEPITCHAVE,' \
           'WINDSPEEDAVE,WINDSPEEDSTD,READWINDSPEEDAVE,ROTORSPDAVE,GENSPDAVE,TORQUESETPOINTAVE,TORQUEAVE,ACTIVEPWAVE,' \
           'PCURVESTSAVE,APPRODUCTION,RPPRODUCTION,APCONSUMED,RPCONSUMED ' \
-          'from {table} where datatime >= to_date(\'{yesterday}\', \'yyyy-mm-dd\') ' \
-          'and datatime < to_date(\'{today}\', \'yyyy-mm-dd\')'.format(table=STG_FACT_WTG_10M, yesterday=day,
-                                                                       today=today)
+          'from {table} where datatime > to_date(\'{yesterday}\', \'yyyy-mm-dd\') ' \
+          'and datatime <= to_date(\'{today}\', \'yyyy-mm-dd\')'.format(table=STG_FACT_WTG_10M, yesterday=day,
+                                                                        today=today)
     out_path = os.sep.join([INPUT_DIR, day, STG_FACT_WTG_10M])
     read_db(sql, out_path)
 

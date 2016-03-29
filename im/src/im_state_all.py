@@ -25,7 +25,7 @@ def read_data(table):
             pd.read_csv(os.sep.join([df_before_dir, f]), parse_dates=[start_time_col]))
     if len(yesterday_files) > 0:
         df_yesterday = pd.concat(yesterday_files)
-        df_yesterday = df_yesterday[df_yesterday[start_time_col] < execute_day]
+        df_yesterday = df_yesterday[df_yesterday[start_time_col] <= execute_day]
     else:
         df_yesterday = pd.DataFrame(None)
 
@@ -59,7 +59,7 @@ def save_last_record(turbine, df, status_type):
     elif status_type == 2:
         out_dir = STG_FACT_HEALTH_STATE
     out_dir = os.sep.join([INPUT_DIR, UTIL_YESTERDAY, out_dir, turbine])
-    df.to_pickle(out_dir)
+    df.to_csv(out_dir, index=False)
 
 
 # @profile
@@ -81,15 +81,15 @@ def fill_in_data(turbine, df, status_type):
                                                  STG_FACT_HEALTH_STATE_SC_ID
 
     start = pd.DataFrame({status_col: np.nan}, index=pd.DatetimeIndex([execute_day_first_second]))
-    # the last record of 23:59:59 need to be padded, so end time need to be today
-    end = pd.DataFrame(None, index=pd.DatetimeIndex([today]))
+    # the last record of 00:00:00 need to be padded, so end time need to be today's first second
+    end = pd.DataFrame(None, index=pd.DatetimeIndex([today_first_second]))
 
     if df is None:
         df = pd.concat([start, end])
         df = df.asfreq('1s', method='pad')
         df[time_col] = df.index
         df[id_col] = turbine
-        return df[(df.index >= execute_day) & (df.index < today)]
+        return df[(df.index > execute_day) & (df.index <= today)]
 
     # sort by start time column and msec col
     # filter multi records in one second, preserve the last one
@@ -101,15 +101,20 @@ def fill_in_data(turbine, df, status_type):
     save_last_record(turbine, df.iloc[-1:], status_type)
 
     add_first, add_last = True, True
-    first_time = df.index[0].to_datetime()
-    last_time = df.index[-1].to_datetime()
-    if is_execute_day_before_more(first_time):
-        start = pd.DataFrame({status_col: df.iloc[0][status_col]},
-                             index=pd.DatetimeIndex([execute_day_first_second]))
-        df = df.iloc[1:]
-        add_first = True
-    if is_execute_day_first_second(first_time):
+    first_time = df.index[0]
+    last_time = df.index[-1]
+
+    if execute_day_first_second in df.index:
+        df = df[df.index >= execute_day_first_second]
         add_first = False
+    else:
+        add_first = True
+        if first_time < execute_day_first_second:
+            start = pd.DataFrame({status_col: df.iloc[0][status_col]},
+                                 index=pd.DatetimeIndex([execute_day_first_second]))
+        else:
+            start = pd.DataFrame({status_col: np.nan}, index=pd.DatetimeIndex([execute_day_first_second]))
+
     if is_execute_day_last_second(last_time):
         add_last = False
     if add_first:
@@ -119,7 +124,7 @@ def fill_in_data(turbine, df, status_type):
     df = df.asfreq('1s', method='pad')
     df[id_col] = turbine
     df[time_col] = df.index
-    return df[(df.index >= execute_day) & (df.index < today)]
+    return df[(df.index > execute_day) & (df.index <= today)]
 
 
 # @profile
@@ -128,7 +133,10 @@ def write_turbine_state(turbine, state_all):
     make_dirs(out_dir)
     out_columns = [STG_FACT_NO_CONN_WTG_ID, STG_FACT_NO_CONN_NC_STARTTIME, STG_FACT_NO_CONN_NC_ID,
                    STG_FACT_STANDARD_STATE_SS_ID, STG_FACT_HEALTH_STATE_SC_ID]
-    state_all[out_columns].to_pickle(os.sep.join([out_dir, turbine]))
+    if debug:
+        state_all[out_columns].to_csv(os.sep.join([out_dir, turbine]), index=False)
+    else:
+        state_all[out_columns].to_pickle(os.sep.join([out_dir, turbine]))
 
 
 # @profile

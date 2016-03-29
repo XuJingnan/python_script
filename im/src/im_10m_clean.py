@@ -19,7 +19,7 @@ def read_data():
         yesterday_files.append(pd.read_csv(os.sep.join([yesterday_dir, f]), parse_dates=[STG_FACT_WTG_10M_DATATIME]))
     if len(yesterday_files) > 0:
         df_yesterday = pd.concat(yesterday_files)
-        # only get the execute day before last ten minutes records
+        # only get the execute day before last ten minutes records: 00:00:00 record
         df_yesterday = df_yesterday[
             df_yesterday[STG_FACT_WTG_10M_DATATIME].apply(lambda x: is_execute_day_before_last_ten_minutes(x))]
     else:
@@ -74,16 +74,16 @@ def fill_missing_data(turbine, df):
     last_time = df.index[-1]
 
     add_first, add_last = True, True
-    if is_execute_day_before_last_ten_minutes(first_time) or is_execute_day_first_second(first_time):
+    if is_execute_day_before_last_ten_minutes(first_time) or is_execute_day_first_ten_minutes(first_time):
         add_first = False
     if is_execute_day_last_ten_minutes(last_time):
         add_last = False
     if add_first:
-        first_record = pd.DataFrame(None, index=pd.DatetimeIndex([execute_day_first_second]))
+        first_record = pd.DataFrame(None, index=pd.DatetimeIndex([execute_day_first_ten_minute]))
         df = pd.concat([first_record, df])
     columns = df.columns
     if add_last:
-        last_record = pd.DataFrame(None, index=pd.DatetimeIndex([execute_day_last_ten_minutes]))
+        last_record = pd.DataFrame(None, index=pd.DatetimeIndex([execute_day_last_ten_minute]))
         df = pd.concat([df, last_record])
     df = df.asfreq('10Min')
     df[STG_FACT_WTG_10M_WTG_ID] = turbine
